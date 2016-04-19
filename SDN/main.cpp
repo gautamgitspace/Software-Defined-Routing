@@ -51,6 +51,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <cstring>
+#include "Serialize.h"
 
 
 #define MAXBUFLEN 100;

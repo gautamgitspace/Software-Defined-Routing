@@ -89,8 +89,9 @@ void packi16(unsigned char *buf, unsigned int i)
  */
 void packi32(unsigned char *buf, unsigned long int i)
 {
-    *buf++ = i>>24; *buf++ = i>>16;
-    *buf++ = i>>8;  *buf++ = i;
+    //modified to get straight IP
+    *buf++ = i>>0; *buf++ = i>>8;
+    *buf++ = i>>16;  *buf++ = i>>24;
 }
 /*
  ** packi64() -- store a 64-bit int into a char buffer (like htonl())
@@ -125,7 +126,6 @@ unsigned int unpacku16(unsigned char *buf)
  */
 long int unpacki32(unsigned char *buf)
 {
-    //modified to get straight IP
     unsigned long int i2 = ((unsigned long int)buf[0]<<24) |
     ((unsigned long int)buf[1]<<16) |
     ((unsigned long int)buf[2]<<8)  |
@@ -140,6 +140,7 @@ long int unpacki32(unsigned char *buf)
  */
 unsigned long int unpacku32(unsigned char *buf)
 {
+    //modified to get straight IP
     return ((unsigned long int)buf[0]<<0) |
     ((unsigned long int)buf[1]<<8) |
     ((unsigned long int)buf[2]<<16)  |

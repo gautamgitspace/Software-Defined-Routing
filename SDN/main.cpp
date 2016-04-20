@@ -51,6 +51,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <cstring>
+#include <algorithm>
 #include "Serialize.h"
 
 
@@ -76,23 +77,6 @@ struct updatePacket
     routingEntry routingEntries [];
 };
 
-struct controlPacketHeader
-{
-    uint32_t destinationIP;
-    uint8_t controlCode;
-    uint8_t responseTime;
-    uint16_t payloadLength;
-};
-
-struct controlResponseHeader
-{
-    uint32_t controllerIP;
-    uint8_t controlCode;
-    uint8_t responseCode;
-    uint16_t payloadLength;
-    
-};
-
 struct controlPacketPayload
 {
     uint32_t routerIP;
@@ -111,7 +95,7 @@ struct controlPacketPayload
 
 struct controlResponsePayload
 {
-    char * dataString;
+    char *dataString;
     uint16_t routerID;
     uint16_t padding;
     uint16_t nextHop;
@@ -119,6 +103,26 @@ struct controlResponsePayload
     uint8_t transferID;
     uint8_t TTL;
 };
+
+
+struct controlPacketHeader
+{
+    uint32_t destinationIP;
+    uint8_t controlCode;
+    uint8_t responseTime;
+    uint16_t payloadLength;
+    controlPacketPayload payload;
+};
+
+struct controlResponseHeader
+{
+    uint32_t controllerIP;
+    uint8_t controlCode;
+    uint8_t responseCode;
+    uint16_t payloadLength;
+    controlResponsePayload payload;
+};
+
 
 class Router
 {
@@ -132,8 +136,12 @@ class Router
     int rv, returnedInfo;
     int numbytes, clientPort;
     struct sockaddr_storage their_addr, clientAddress;
+    struct sockaddr_in6 *peername6;
+    struct sockaddr_in *peername;
     char buffer[100];
-    unsigned char *controlHeaderBuffer;
+    unsigned char *controlBuffer;
+    unsigned char *controlResponseBuffer;
+    unsigned char *controlResponsePayloadBuffer;
     socklen_t addr_len, clientLength;
     char s[INET6_ADDRSTRLEN];
     char storeAddress[INET6_ADDRSTRLEN];
@@ -333,15 +341,15 @@ public: int estalblishRouter(uint16_t controlPort)
                                 getpeername(sockfdController, (struct sockaddr *) &clientAddress, &clientLength);
                                 if(clientAddress.ss_family == AF_INET)
                                 {
-                                    struct sockaddr_in *peername = (struct sockaddr_in *) &clientAddress;
+                                    peername = (struct sockaddr_in *) &clientAddress;
                                     clientPort = ntohs(peername->sin_port);
                                     inet_ntop(AF_INET, &peername->sin_addr, storeAddress, sizeof (storeAddress));
                                 }
                                 else
                                 {
-                                    struct sockaddr_in6 *peername = (struct sockaddr_in6 *) &clientAddress;
-                                    clientPort = ntohs(peername->sin6_port);
-                                    inet_ntop(AF_INET, &peername->sin6_addr, storeAddress, sizeof (storeAddress));
+                                    peername6 = (struct sockaddr_in6 *) &clientAddress;
+                                    clientPort = ntohs(peername->sin_port);
+                                    inet_ntop(AF_INET, &peername->sin_addr, storeAddress, sizeof (storeAddress));
                                 }
                                 printf("Accepting new connection from %s: %d on socket %d\n\n", storeAddress, clientPort, newsockfd);
                                 printf("Socket %d is bound to %s\n", newsockfd, storeAddress);
@@ -349,9 +357,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                 /*handle data on TCP socket here using recv
                                  1. do actions based on control codes
                                  2. handle file transfer if control code is Ox05 and 0x06 */
-                                controlHeaderBuffer = static_cast<unsigned char *>(malloc(1024));
-                                bzero(controlHeaderBuffer, sizeof(controlHeaderBuffer));
-                                if((readBytes = recv(newsockfd,controlHeaderBuffer,sizeof(controlHeaderBuffer),0)) <=0)
+                                controlBuffer = static_cast<unsigned char *>(malloc(1024));
+                                bzero(controlBuffer, sizeof(controlBuffer));
+                                if((readBytes = recv(newsockfd,controlBuffer,sizeof(controlBuffer),0)) <=0)
                                 {
                                     if(readBytes==0)
                                     {
@@ -370,7 +378,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     
                                     printf("received %d bytes of data from the CONTROLLER\n", readBytes);
                                     printf("trying to unpack\n");
-                                    struct controlPacketHeader *temp =  (struct controlPacketHeader *) malloc(sizeof(struct controlPacketHeader));
+                                    struct controlPacketHeader *cph =  (struct controlPacketHeader *) malloc(sizeof(struct controlPacketHeader));
                                     
                                     //temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) |(controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
                                     //temp->controlCode=(controlHeaderBuffer[4] << 8) | controlHeaderBuffer[4];
@@ -379,52 +387,75 @@ public: int estalblishRouter(uint16_t controlPort)
                                     
                                     //call to unpack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
                                     
-                                    unpack(controlHeaderBuffer, "LCCH", &temp->destinationIP, &temp->controlCode, &temp->responseTime, &temp->payloadLength);
+                                    unpack(controlBuffer, "LCCH", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength);
                                     /*FOR BASIC TESTING*/
-                                    char * str = inet_ntoa(*(struct in_addr *)&temp->destinationIP);
+                                    char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
                                     printf("dest IP: %s\n", str);
-                                    printf("control code: %u\n", temp->controlCode);
-                                    printf("response time: %u\n", temp->responseTime);
-                                    printf("payload length: %u\n", temp->payloadLength);
+                                    printf("control code: %u\n", cph->controlCode);
+                                    printf("response time: %u\n", cph->responseTime);
+                                    printf("payload length: %u\n", cph->payloadLength);
                                     printf("unpack successful\n");
                                     
                                     /*DECISIONS BASED ON CONTROL CODES NOW*/
-                                    if(temp->controlCode==0)
+                                    if(cph->controlCode==0)
                                     {
-                                        char hex[4];
-                                        sprintf(hex, "%x", temp->controlCode);
+                                        char hex[5];
+                                        char hex1[5];
+                                        sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. Academic Integrity Response will be generated\n", hex);
                                         //call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
+                                        controlResponseBuffer = static_cast<unsigned char *>(malloc(1024));
+                                        controlResponsePayloadBuffer = static_cast<unsigned char *>(malloc(1024));
+                                        struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
+                                        struct controlResponsePayload *crp = (struct controlResponsePayload *) malloc(sizeof(struct controlResponsePayload));
+                                        sprintf(hex, "%x", '0x00');
+                                        crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
+                                        crh->controlCode=0;//for now let it be 0 later will see of coverting into hex and then sending
+                                        crh->responseCode=0;
+                                        printf("done writing\n");
+                                        crp->dataString=static_cast<char *>(malloc(256));
+                                        strcpy(crp->dataString, "I, agautam2, have read and understood the course academic integrity policy.");
+                                        //strcpy(crp->dataString, "I, agautam2, have read and understood the course academic integrity policy.");
+                                        printf("copied to dataString: %s", crp->dataString);
+                                        crh->payloadLength=sizeof("I, agautam2, have read and understood the course academic integrity policy.");
+                                        pack(controlResponseBuffer, "LCCHCs", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength,crp->dataString);
+                                        //pack(controlResponsePayloadBuffer, "s", crp->dataString);
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer, sizeof(controlResponseBuffer), 0);
+                                        //int ableToSend2 = send(newsockfd, controlResponsePayloadBuffer, sizeof(controlResponsePayloadBuffer), 0);
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send serialized header\n");
+                                        }
                                     }
-                                    else if(temp->controlCode==1)
+                                    else if(cph->controlCode==1)
                                     {
                                         printf("control code 0x01 found. Routing Table will be populated\n");
                                     }
-                                    else if(temp->controlCode==2)
+                                    else if(cph->controlCode==2)
                                     {
                                         printf("control code 0x02 found. Routing Table requested. Will be sent\n");
                                     }
-                                    else if(temp->controlCode==3)
+                                    else if(cph->controlCode==3)
                                     {
                                         printf("control code 0x03 found. Routing Table will be updated\n");
                                     }
-                                    else if(temp->controlCode==4)
+                                    else if(cph->controlCode==4)
                                     {
                                         printf("control code 0x04 found. Router will crash now\n");
                                     }
-                                    else if(temp->controlCode==5)
+                                    else if(cph->controlCode==5)
                                     {
                                         printf("control code 0x05 found. File needs to be sent\n");
                                     }
-                                    else if(temp->controlCode==6)
+                                    else if(cph->controlCode==6)
                                     {
                                         printf("control code 0x06 found. File STATS need to be sent\n");
                                     }
-                                    else if(temp->controlCode==7)
+                                    else if(cph->controlCode==7)
                                     {
                                         printf("control code 0x07 found. Last data packet needs to be sent\n");
                                     }
-                                    else if(temp->controlCode==8)
+                                    else if(cph->controlCode==8)
                                     {
                                         printf("control code 0x08 found. Second Last data packet needs to be sent\n");
                                     }

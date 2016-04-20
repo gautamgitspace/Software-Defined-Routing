@@ -342,14 +342,18 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("received %d bytes of data from the CONTROLLER\n", readBytes);
                                     printf("trying to unpack\n");
                                     struct controlPacket *temp =  (struct controlPacket *) malloc(sizeof(struct controlPacket));
-                                    temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) | (controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
-                                    temp->controlCode=(controlHeaderBuffer[4] << 8) | controlHeaderBuffer[4];
-                                    temp->responseTime=(controlHeaderBuffer[5] << 8) | controlHeaderBuffer[5];
-                                    temp->payloadLength=(controlHeaderBuffer[6] << 0) | (controlHeaderBuffer[7] << 8);
-                                    struct in_addr addr = {temp->destinationIP};
+//                                    temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) | (controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
+//                                    temp->controlCode=(controlHeaderBuffer[4] << 8) | controlHeaderBuffer[4];
+//                                    temp->responseTime=(controlHeaderBuffer[5] << 8) | controlHeaderBuffer[5];
+//                                    temp->payloadLength=(controlHeaderBuffer[6] << 0) | (controlHeaderBuffer[7] << 8);
                                     
+                                    
+                                    //call to unpack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
+                                    
+                                    unpack(controlHeaderBuffer, "LCCH", &temp->destinationIP, &temp->controlCode, &temp->responseTime, &temp->payloadLength);
+                                    char * str = inet_ntoa(*(struct in_addr *)&temp->destinationIP);
+                                    printf("dest IP: %s\n", str);
                                     printf("control code: %u\n", temp->controlCode);
-                                    printf("dest IP: %s\n", inet_ntoa(addr));
                                     printf("response time: %u\n", temp->responseTime);
                                     printf("payload length: %u\n", temp->payloadLength);
                                     printf("unpack successful\n");

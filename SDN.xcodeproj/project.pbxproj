@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C743A49D1CC6365000D4EB7C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C743A49C1CC6365000D4EB7C /* main.cpp */; };
+		C7CD2FD11CC6A54E0073AE96 /* Serialize.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C7CD2FD01CC6A54E0073AE96 /* Serialize.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +26,8 @@
 /* Begin PBXFileReference section */
 		C743A4991CC6365000D4EB7C /* SDN */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SDN; sourceTree = BUILT_PRODUCTS_DIR; };
 		C743A49C1CC6365000D4EB7C /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		C7CD2FD01CC6A54E0073AE96 /* Serialize.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Serialize.cpp; sourceTree = "<group>"; };
+		C7CD2FD21CC6A55D0073AE96 /* Serialize.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Serialize.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +61,8 @@
 			isa = PBXGroup;
 			children = (
 				C743A49C1CC6365000D4EB7C /* main.cpp */,
+				C7CD2FD01CC6A54E0073AE96 /* Serialize.cpp */,
+				C7CD2FD21CC6A55D0073AE96 /* Serialize.h */,
 			);
 			path = SDN;
 			sourceTree = "<group>";
@@ -118,6 +123,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7CD2FD11CC6A54E0073AE96 /* Serialize.cpp in Sources */,
 				C743A49D1CC6365000D4EB7C /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -239,6 +245,7 @@
 				C743A4A21CC6365000D4EB7C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

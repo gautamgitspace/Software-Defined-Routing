@@ -125,6 +125,7 @@ unsigned int unpacku16(unsigned char *buf)
  */
 long int unpacki32(unsigned char *buf)
 {
+    //modified to get straight IP
     unsigned long int i2 = ((unsigned long int)buf[0]<<24) |
     ((unsigned long int)buf[1]<<16) |
     ((unsigned long int)buf[2]<<8)  |
@@ -139,10 +140,10 @@ long int unpacki32(unsigned char *buf)
  */
 unsigned long int unpacku32(unsigned char *buf)
 {
-    return ((unsigned long int)buf[0]<<24) |
-    ((unsigned long int)buf[1]<<16) |
-    ((unsigned long int)buf[2]<<8)  |
-    buf[3];
+    return ((unsigned long int)buf[0]<<0) |
+    ((unsigned long int)buf[1]<<8) |
+    ((unsigned long int)buf[2]<<16)  |
+    ((unsigned long int)buf[3]<<24);
 }
 /*
  ** unpacki64() -- unpack a 64-bit int from a char buffer (like ntohl())

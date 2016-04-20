@@ -76,7 +76,7 @@ struct updatePacket
     routingEntry routingEntries [];
 };
 
-struct controlPacket
+struct controlPacketHeader
 {
     uint32_t destinationIP;
     uint8_t controlCode;
@@ -84,12 +84,40 @@ struct controlPacket
     uint16_t payloadLength;
 };
 
-struct controlResponse
+struct controlResponseHeader
 {
-    struct in_addr controllerIP;
+    uint32_t controllerIP;
     uint8_t controlCode;
     uint8_t responseCode;
     uint16_t payloadLength;
+    
+};
+
+struct controlPacketPayload
+{
+    uint32_t routerIP;
+    uint16_t nodes;
+    uint16_t updateInterval;
+    uint16_t routerID;
+    uint16_t routerPort;
+    uint16_t dataPort;
+    uint16_t metric;
+    uint16_t sequenceNumber;
+    uint8_t TTL;
+    uint8_t transferID;
+    char * fileName;
+    
+};
+
+struct controlResponsePayload
+{
+    char * dataString;
+    uint16_t routerID;
+    uint16_t padding;
+    uint16_t nextHop;
+    uint16_t metric;
+    uint8_t transferID;
+    uint8_t TTL;
 };
 
 class Router
@@ -342,7 +370,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     
                                     printf("received %d bytes of data from the CONTROLLER\n", readBytes);
                                     printf("trying to unpack\n");
-                                    struct controlPacket *temp =  (struct controlPacket *) malloc(sizeof(struct controlPacket));
+                                    struct controlPacketHeader *temp =  (struct controlPacketHeader *) malloc(sizeof(struct controlPacketHeader));
                                     
                                     //temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) |(controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
                                     //temp->controlCode=(controlHeaderBuffer[4] << 8) | controlHeaderBuffer[4];
@@ -363,7 +391,10 @@ public: int estalblishRouter(uint16_t controlPort)
                                     /*DECISIONS BASED ON CONTROL CODES NOW*/
                                     if(temp->controlCode==0)
                                     {
-                                        printf("control code 0x00 found. Academic Integrity Response will be generated\n");
+                                        char hex[4];
+                                        sprintf(hex, "%x", temp->controlCode);
+                                        printf("control code %s found. Academic Integrity Response will be generated\n", hex);
+                                        //call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
                                     }
                                     else if(temp->controlCode==1)
                                     {

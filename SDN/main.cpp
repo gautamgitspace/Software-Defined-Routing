@@ -111,7 +111,6 @@ struct controlPacketHeader
     uint8_t controlCode;
     uint8_t responseTime;
     uint16_t payloadLength;
-    controlPacketPayload payload;
 };
 
 struct controlResponseHeader
@@ -120,7 +119,6 @@ struct controlResponseHeader
     uint8_t controlCode;
     uint8_t responseCode;
     uint16_t payloadLength;
-    controlResponsePayload payload;
 };
 
 
@@ -399,29 +397,45 @@ public: int estalblishRouter(uint16_t controlPort)
                                     /*DECISIONS BASED ON CONTROL CODES NOW*/
                                     if(cph->controlCode==0)
                                     {
+                                        //for my testing
                                         char hex[5];
-                                        char hex1[5];
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. Academic Integrity Response will be generated\n", hex);
-                                        //call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
+                                        
                                         controlResponseBuffer = static_cast<unsigned char *>(malloc(1024));
                                         controlResponsePayloadBuffer = static_cast<unsigned char *>(malloc(1024));
                                         struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                         struct controlResponsePayload *crp = (struct controlResponsePayload *) malloc(sizeof(struct controlResponsePayload));
-                                        sprintf(hex, "%x", '0x00');
+                                        
                                         crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
-                                        crh->controlCode=0;//for now let it be 0 later will see of coverting into hex and then sending
+                                        crh->controlCode=0;
                                         crh->responseCode=0;
-                                        printf("done writing\n");
                                         crp->dataString=static_cast<char *>(malloc(256));
-                                        strcpy(crp->dataString, "I, agautam2, have read and understood the course academic integrity policy.");
-                                        //strcpy(crp->dataString, "I, agautam2, have read and understood the course academic integrity policy.");
-                                        printf("copied to dataString: %s", crp->dataString);
-                                        crh->payloadLength=sizeof("I, agautam2, have read and understood the course academic integrity policy.");
-                                        pack(controlResponseBuffer, "LCCHCs", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength,crp->dataString);
+                                        strcpy(crp->dataString, "I, agautam2, have read and understood the course academic integrity policy.\0");
+                                        crh->payloadLength=sizeof("I, agautam2, have read and understood the course academic integrity policy.")-1;
+                                        printf("done writing\n");
+                                        fflush(stdout);
+                                        
+                                        ////call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
+                                        pack(controlResponseBuffer, "LCCHC", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength);
+                                        controlResponseBuffer += 8;
+                                        memcpy(controlResponseBuffer, crp->dataString, 75);//to make it work
+                                        controlResponseBuffer=controlResponseBuffer-8;
+                                        
                                         //pack(controlResponsePayloadBuffer, "s", crp->dataString);
-                                        int ableToSend1 = send(newsockfd, controlResponseBuffer, sizeof(controlResponseBuffer), 0);
-                                        //int ableToSend2 = send(newsockfd, controlResponsePayloadBuffer, sizeof(controlResponsePayloadBuffer), 0);
+                                        
+                                        /*To test from sending side:*/
+                                        FILE *fp;
+                                        fp = fopen("file1.txt", "w");
+                                        fwrite(controlResponseBuffer, 83, 1, fp); //(payload (75)+ header(8)
+                                        fclose(fp);
+                                        
+                                        
+                                        //SEND
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,84, 0);
+                                        
+                                        printf("%lu\n", sizeof(controlResponseBuffer));
+                                        printf("%lu\n", sizeof(controlResponsePayloadBuffer));
                                         if(ableToSend1<0)
                                         {
                                             printf("failed to send serialized header\n");

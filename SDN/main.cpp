@@ -339,24 +339,64 @@ public: int estalblishRouter(uint16_t controlPort)
                                 else
                                 {
                                     //OK WE HAVE SOME DATA NOW FROM THE CONTROLLER
+                                    
                                     printf("received %d bytes of data from the CONTROLLER\n", readBytes);
                                     printf("trying to unpack\n");
                                     struct controlPacket *temp =  (struct controlPacket *) malloc(sizeof(struct controlPacket));
-//                                    temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) | (controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
-//                                    temp->controlCode=(controlHeaderBuffer[4] << 8) | controlHeaderBuffer[4];
-//                                    temp->responseTime=(controlHeaderBuffer[5] << 8) | controlHeaderBuffer[5];
-//                                    temp->payloadLength=(controlHeaderBuffer[6] << 0) | (controlHeaderBuffer[7] << 8);
                                     
+                                    //temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) |(controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
+                                    //temp->controlCode=(controlHeaderBuffer[4] << 8) | controlHeaderBuffer[4];
+                                    //temp->responseTime=(controlHeaderBuffer[5] << 8) | controlHeaderBuffer[5];
+                                    //temp->payloadLength=(controlHeaderBuffer[6] << 0) | (controlHeaderBuffer[7] << 8);
                                     
                                     //call to unpack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
                                     
                                     unpack(controlHeaderBuffer, "LCCH", &temp->destinationIP, &temp->controlCode, &temp->responseTime, &temp->payloadLength);
+                                    /*FOR BASIC TESTING*/
                                     char * str = inet_ntoa(*(struct in_addr *)&temp->destinationIP);
                                     printf("dest IP: %s\n", str);
                                     printf("control code: %u\n", temp->controlCode);
                                     printf("response time: %u\n", temp->responseTime);
                                     printf("payload length: %u\n", temp->payloadLength);
                                     printf("unpack successful\n");
+                                    
+                                    /*DECISIONS BASED ON CONTROL CODES NOW*/
+                                    if(temp->controlCode==0)
+                                    {
+                                        printf("control code 0x00 found. Academic Integrity Response will be generated\n");
+                                    }
+                                    else if(temp->controlCode==1)
+                                    {
+                                        printf("control code 0x01 found. Routing Table will be populated\n");
+                                    }
+                                    else if(temp->controlCode==2)
+                                    {
+                                        printf("control code 0x02 found. Routing Table requested. Will be sent\n");
+                                    }
+                                    else if(temp->controlCode==3)
+                                    {
+                                        printf("control code 0x03 found. Routing Table will be updated\n");
+                                    }
+                                    else if(temp->controlCode==4)
+                                    {
+                                        printf("control code 0x04 found. Router will crash now\n");
+                                    }
+                                    else if(temp->controlCode==5)
+                                    {
+                                        printf("control code 0x05 found. File needs to be sent\n");
+                                    }
+                                    else if(temp->controlCode==6)
+                                    {
+                                        printf("control code 0x06 found. File STATS need to be sent\n");
+                                    }
+                                    else if(temp->controlCode==7)
+                                    {
+                                        printf("control code 0x07 found. Last data packet needs to be sent\n");
+                                    }
+                                    else if(temp->controlCode==8)
+                                    {
+                                        printf("control code 0x08 found. Second Last data packet needs to be sent\n");
+                                    }
                                     
                                     
                                 }
@@ -366,12 +406,12 @@ public: int estalblishRouter(uint16_t controlPort)
                         //select SET#2
                         else if(FD_ISSET(sockfdUpdates, &tempRead_fds))
                         {
-                            //hand UDP routing updates here using recvfrom() and manipulate them for Bellman-Ford
+                            //handle UDP routing updates here using recvfrom() and manipulate them for Bellman-Ford
                         }
                         //select SET#3
                         else
                         {
-                            
+                            //is this even neeeded?
                         }
                     }
                 }//for of iterating through connections ends

@@ -79,13 +79,13 @@ struct updatePacket
 
 struct controlPacketPayload
 {
-    uint32_t routerIP;
+    uint32_t routerIP[5];
     uint16_t nodes;
     uint16_t updateInterval;
-    uint16_t routerID;
-    uint16_t routerPort;
-    uint16_t dataPort;
-    uint16_t metric;
+    uint16_t routerID[5];
+    uint16_t routerPort[5];
+    uint16_t dataPort[5];
+    uint16_t metric[5];
     uint16_t sequenceNumber;
     uint8_t TTL;
     uint8_t transferID;
@@ -137,7 +137,7 @@ class Router
     struct sockaddr_in6 *peername6;
     struct sockaddr_in *peername;
     char buffer[100];
-    unsigned char *controlBuffer;
+    unsigned char *controlBuffer=0;
     unsigned char *controlResponseBuffer;
     unsigned char *controlResponsePayloadBuffer;
     socklen_t addr_len, clientLength;
@@ -249,7 +249,7 @@ public: int estalblishRouter(uint16_t controlPort)
             }
             else
             {
-                printf("Router now listening for updates on router port: %s\n", listenPort);
+                //printf("Router now listening for updates on router port: %s\n", listenPort);
             }
             break;
         }
@@ -355,27 +355,38 @@ public: int estalblishRouter(uint16_t controlPort)
                                 /*handle data on TCP socket here using recv
                                  1. do actions based on control codes
                                  2. handle file transfer if control code is Ox05 and 0x06 */
-                                controlBuffer = static_cast<unsigned char *>(malloc(1024));
+                                //controlBuffer = (unsigned char *)malloc(1024);
+                                
+                                printf("####clearing controlBuffer####\n");
+                                controlBuffer = (unsigned char *)(malloc(1024));
                                 bzero(controlBuffer, sizeof(controlBuffer));
-                                if((readBytes = recv(newsockfd,controlBuffer,sizeof(controlBuffer),0)) <=0)
-                                {
-                                    if(readBytes==0)
+                                printf("size of receive buffer is: %lu\n", sizeof(controlBuffer));
+                                
+                                
+                                    if((readBytes = recv(newsockfd,controlBuffer,1024,0)) <=0)
                                     {
-                                        printf("Remote Server Hung Up\n");
+                                        if(readBytes==0)
+                                        {
+                                            printf("Remote Server Hung Up\n");
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            perror("ERROR IN RECEIVING");
+                                            break;
+                                        }
+                                        close(i);
+                                        FD_CLR(i,&masterDescriptor);
                                     }
-                                    else
-                                    {
-                                        perror("ERROR IN RECEIVING");
-                                    }
-                                    close(i);
-                                    FD_CLR(i,&masterDescriptor);
-                                }
-                                else
+                                
+                                
+                                if(readBytes>1)
                                 {
                                     //OK WE HAVE SOME DATA NOW FROM THE CONTROLLER
                                     
                                     printf("received %d bytes of data from the CONTROLLER\n", readBytes);
                                     printf("trying to unpack\n");
+                                    printf("--------HEADER CONTAINS--------\n");
                                     struct controlPacketHeader *cph =  (struct controlPacketHeader *) malloc(sizeof(struct controlPacketHeader));
                                     
                                     //temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) |(controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
@@ -384,9 +395,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                     //temp->payloadLength=(controlHeaderBuffer[6] << 0) | (controlHeaderBuffer[7] << 8);
                                     
                                     //call to unpack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
-                                    
                                     unpack(controlBuffer, "LCCH", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength);
-                                    /*FOR BASIC TESTING*/
+                                    
+                                    /*FOR BASIC TESTING-WILL IT BE SAME FOR ALL? - YES HEADER IS SAME. PAYLOAD VARIES ACC TO CONTROL CODE*/
                                     char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
                                     printf("dest IP: %s\n", str);
                                     printf("control code: %u\n", cph->controlCode);
@@ -394,9 +405,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("payload length: %u\n", cph->payloadLength);
                                     printf("unpack successful\n");
                                     
+                                    
                                     /*DECISIONS BASED ON CONTROL CODES NOW*/
                                     if(cph->controlCode==0)
                                     {
+                                        //AUTHOR-RESPONSE REQUIRED
                                         //for my testing
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
@@ -416,7 +429,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         printf("done writing\n");
                                         fflush(stdout);
                                         
-                                        ////call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
+                                        //call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
                                         pack(controlResponseBuffer, "LCCHC", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength);
                                         controlResponseBuffer += 8;
                                         memcpy(controlResponseBuffer, crp->dataString, 75);//to make it work
@@ -430,12 +443,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                         fwrite(controlResponseBuffer, 83, 1, fp); //(payload (75)+ header(8)
                                         fclose(fp);
                                         
-                                        
                                         //SEND
-                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,84, 0);
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,83, 0);
                                         
-                                        printf("%lu\n", sizeof(controlResponseBuffer));
-                                        printf("%lu\n", sizeof(controlResponsePayloadBuffer));
                                         if(ableToSend1<0)
                                         {
                                             printf("failed to send serialized header\n");
@@ -443,34 +453,74 @@ public: int estalblishRouter(uint16_t controlPort)
                                     }
                                     else if(cph->controlCode==1)
                                     {
-                                        printf("control code 0x01 found. Routing Table will be populated\n");
+                                        //INIT-BUILD RT-NO RESPONSE REQUIRED
+                                        char hex[5];
+                                        sprintf(hex, "%x", cph->controlCode);
+                                        printf("control code %s found. Routing Table will be populated\n",hex);
+                                        struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
+                                        controlBuffer +=8;
+                                        //call to unpack to extract payload using args as: 16(H), 16(H), 16(H), 16(H), 16(H), 16(H), 32(L)
+                                        
+                                        
+                                        unpack(controlBuffer, "HH HHHHL HHHHL HHHHL HHHHL HHHHL", &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
+                                        
+                                        
+                                        printf("--------PAYLOAD CONTAINS--------\n");
+                                        printf("No. of nodes: %u\n",cpp->nodes);
+                                        printf("Update Interval: %u\n",cpp->updateInterval);
+                                        for(i=0;i<5;i++)
+                                        {
+                                        printf("Router ID [%d] : %u\n",i+1, cpp->routerID[i]);
+                                        printf("Router Port [%d] : %u\n",i+1,cpp->routerPort[i]);
+                                        printf("Data Port [%d] : %u\n",i+1, cpp->dataPort[i]);
+                                        printf("Metric [%d] : %u\n",i+1, cpp->metric[i]);
+                                        }
+                                        char * str1= inet_ntoa(*(struct in_addr *)&cpp->routerIP[0]);
+                                        printf("Router IP [1]: %s\n", str1);
+                                        char * str2= inet_ntoa(*(struct in_addr *)&cpp->routerIP[1]);
+                                        printf("Router IP [2]: %s\n", str2);
+                                        char * str3= inet_ntoa(*(struct in_addr *)&cpp->routerIP[2]);
+                                        printf("Router IP [3]: %s\n", str3);
+                                        char * str4= inet_ntoa(*(struct in_addr *)&cpp->routerIP[3]);
+                                        printf("Router IP [4]: %s\n", str4);
+                                        char * str5= inet_ntoa(*(struct in_addr *)&cpp->routerIP[4]);
+                                        printf("Router IP [5]: %s\n", str5);
+                                        
+                                        
                                     }
                                     else if(cph->controlCode==2)
                                     {
+                                        //ROUTING TABLE-RT RESPONSE REQUIRED
                                         printf("control code 0x02 found. Routing Table requested. Will be sent\n");
                                     }
                                     else if(cph->controlCode==3)
                                     {
+                                        //UPDATE-UPDATE RT-NO RESPONSE REQUIRED
                                         printf("control code 0x03 found. Routing Table will be updated\n");
                                     }
                                     else if(cph->controlCode==4)
                                     {
+                                        //CRASH-TURN OFF ROUTING OPERATIONS-RESPONSE REQUIRED
                                         printf("control code 0x04 found. Router will crash now\n");
                                     }
                                     else if(cph->controlCode==5)
                                     {
+                                        //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED
                                         printf("control code 0x05 found. File needs to be sent\n");
                                     }
                                     else if(cph->controlCode==6)
                                     {
+                                        //SENDFILESTATS-RESPONSE REQUIRED
                                         printf("control code 0x06 found. File STATS need to be sent\n");
                                     }
                                     else if(cph->controlCode==7)
                                     {
+                                        //LASTDATAPACKET-RESPONSE REQUIRED
                                         printf("control code 0x07 found. Last data packet needs to be sent\n");
                                     }
                                     else if(cph->controlCode==8)
                                     {
+                                        //SECONDLASTDATAPACKET-RESPONSE REQUIRED
                                         printf("control code 0x08 found. Second Last data packet needs to be sent\n");
                                     }
                                     

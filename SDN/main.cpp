@@ -58,7 +58,7 @@
 #define MAXBUFLEN 100;
 #define INF 65535;
 
-using namespace std;
+//using namespace std;
 
 struct routingEntry
 {
@@ -89,7 +89,7 @@ struct controlPacketPayload
     uint16_t sequenceNumber;
     uint8_t TTL;
     uint8_t transferID;
-    char * fileName;
+    char fileName[256];
     
 };
 
@@ -137,7 +137,7 @@ class Router
     struct sockaddr_in6 *peername6;
     struct sockaddr_in *peername;
     char buffer[100];
-    unsigned char *controlBuffer=0;
+    unsigned char *controlBuffer;
     unsigned char *controlResponseBuffer;
     unsigned char *controlResponsePayloadBuffer;
     socklen_t addr_len, clientLength;
@@ -355,14 +355,14 @@ public: int estalblishRouter(uint16_t controlPort)
                                 /*handle data on TCP socket here using recv
                                  1. do actions based on control codes
                                  2. handle file transfer if control code is Ox05 and 0x06 */
-                                //controlBuffer = (unsigned char *)malloc(1024);
+                                controlBuffer =  new unsigned char [1024];
                                 
                                 printf("####clearing controlBuffer####\n");
-                                controlBuffer = (unsigned char *)(malloc(1024));
+                                //controlBuffer = (unsigned char *)(malloc(1024));
                                 bzero(controlBuffer, sizeof(controlBuffer));
                                 printf("size of receive buffer is: %lu\n", sizeof(controlBuffer));
                                 
-                                
+                                //READ DATA FROM CONTROLLER
                                     if((readBytes = recv(newsockfd,controlBuffer,1024,0)) <=0)
                                     {
                                         if(readBytes==0)
@@ -458,13 +458,19 @@ public: int estalblishRouter(uint16_t controlPort)
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. Routing Table will be populated\n",hex);
                                         struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
-                                        controlBuffer +=8;
+                                        //controlBuffer +=8;
                                         //call to unpack to extract payload using args as: 16(H), 16(H), 16(H), 16(H), 16(H), 16(H), 32(L)
                                         
                                         
-                                        unpack(controlBuffer, "HH HHHHL HHHHL HHHHL HHHHL HHHHL", &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
+                                        unpack(controlBuffer, "LCCH HH HHHHL HHHHL HHHHL HHHHL HHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
                                         
-                                        
+                                        printf("unpacking again for code %s \n", hex);
+                                        printf("--------HEADER CONTAINS---------\n");
+                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
+                                        printf("dest IP: %s\n", str);
+                                        printf("control code: %u\n", cph->controlCode);
+                                        printf("response time: %u\n", cph->responseTime);
+                                        printf("payload length: %u\n", cph->payloadLength);
                                         printf("--------PAYLOAD CONTAINS--------\n");
                                         printf("No. of nodes: %u\n",cpp->nodes);
                                         printf("Update Interval: %u\n",cpp->updateInterval);
@@ -496,7 +502,23 @@ public: int estalblishRouter(uint16_t controlPort)
                                     else if(cph->controlCode==3)
                                     {
                                         //UPDATE-UPDATE RT-NO RESPONSE REQUIRED
-                                        printf("control code 0x03 found. Routing Table will be updated\n");
+                                    
+                                        char hex[5];
+                                        sprintf(hex, "%x", cph->controlCode);
+                                        printf("control code %s found. Routing Table will be populated. Waiting for payload...\n",hex);
+                                        struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
+                                        unpack(controlBuffer, "LCCHHH", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->routerID[0], &cpp->metric[0]);
+                                        printf("unpacking again for code %s \n", hex);
+                                        printf("--------HEADER CONTAINS---------\n");
+                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
+                                        printf("dest IP: %s\n", str);
+                                        printf("control code: %u\n", cph->controlCode);
+                                        printf("response time: %u\n", cph->responseTime);
+                                        printf("payload length: %u\n", cph->payloadLength);
+                                        printf("--------PAYLOAD CONTAINS--------\n");
+                                        printf("Router ID for which cost is to be updated: %u\n",cpp->routerID[0]);
+                                        printf("Cost to be updated to %u\n",cpp->metric[0]);
+                                        
                                     }
                                     else if(cph->controlCode==4)
                                     {
@@ -506,12 +528,46 @@ public: int estalblishRouter(uint16_t controlPort)
                                     else if(cph->controlCode==5)
                                     {
                                         //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED
-                                        printf("control code 0x05 found. File needs to be sent\n");
+                                        char hex[5];
+                                        sprintf(hex, "%x", cph->controlCode);
+                                        printf("control code %s found. File needs to be sent. Waiting for payload...\n",hex);
+                                        struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
+                                        printf("size of filename: %d", sizeof(cpp->fileName));
+                                        unpack(controlBuffer, "LCCHLCCH256s", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength ,&cpp->routerIP[0], &cpp->TTL, &cpp->transferID, &cpp->sequenceNumber, &cpp->fileName);
+                                        printf("unpacking again for code %s \n", hex);
+                                        printf("--------HEADER CONTAINS---------\n");
+                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
+                                        printf("dest IP: %s\n", str);
+                                        printf("control code: %u\n", cph->controlCode);
+                                        printf("response time: %u\n", cph->responseTime);
+                                        printf("payload length: %u\n", cph->payloadLength);
+                                        printf("--------PAYLOAD CONTAINS--------\n");
+                                        char * str1= inet_ntoa(*(struct in_addr *)&cpp->routerIP[0]);
+                                        printf("File to be sent: %s\n",cpp->fileName);
+                                        printf("Router IP to which file is to be sent: %s\n",str1);
+                                        printf("TTL Value: %u\n", cpp->TTL);
+                                        printf("Init Seq num: %u\n", cpp->sequenceNumber);
+                                        printf("TransferID: %u\n",cpp->transferID);
+                                        
+                                        
                                     }
                                     else if(cph->controlCode==6)
                                     {
                                         //SENDFILESTATS-RESPONSE REQUIRED
-                                        printf("control code 0x06 found. File STATS need to be sent\n");
+                                        char hex[5];
+                                        sprintf(hex, "%x", cph->controlCode);
+                                        printf("control code %s found. File STATS need to be sent. Waiting for payload...\n",hex);
+                                        struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
+                                        unpack(controlBuffer, "LCCHC", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength ,&cpp->transferID);
+                                        printf("unpacking again for code %s \n", hex);
+                                        printf("--------HEADER CONTAINS---------\n");
+                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
+                                        printf("dest IP: %s\n", str);
+                                        printf("control code: %u\n", cph->controlCode);
+                                        printf("response time: %u\n", cph->responseTime);
+                                        printf("payload length: %u\n", cph->payloadLength);
+                                        printf("--------PAYLOAD CONTAINS--------\n");
+                                        printf("Stats needed for ID: %u\n",cpp->transferID);
                                     }
                                     else if(cph->controlCode==7)
                                     {

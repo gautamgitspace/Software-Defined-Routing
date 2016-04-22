@@ -392,18 +392,28 @@ public: int estalblishRouter(uint16_t controlPort)
                                     
                                     printf("received %d bytes of data from the CONTROLLER\n", readBytes);
                                     printf("trying to unpack\n");
-                                    printf("--------HEADER CONTAINS--------\n");
+                                    
                                     struct controlPacketHeader *cph =  (struct controlPacketHeader *) malloc(sizeof(struct controlPacketHeader));
                                     
                                     //call to unpack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
-                                    unpack(controlBuffer, "LCCH", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength);
+                                    //unpack(controlBuffer, "LCCH", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength);
+                                    
+                                    memcpy(&cph->destinationIP, controlBuffer, 4);
+                                    controlBuffer+=4;
+                                    memcpy(&cph->controlCode, controlBuffer, 1);
+                                    controlBuffer+=1;
+                                    memcpy(&cph->responseTime, controlBuffer, 1);
+                                    controlBuffer+=1;
+                                    memcpy(&cph->payloadLength, controlBuffer, 2);
+                                    controlBuffer-=6;
                                     
                                     /*FOR BASIC TESTING-WILL IT BE SAME FOR ALL? - YES HEADER IS SAME. PAYLOAD VARIES ACC TO CONTROL CODE*/
+                                    printf("--------HEADER CONTAINS--------\n");
                                     char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
                                     printf("dest IP: %s\n", str);
-                                    printf("control code: %u\n", cph->controlCode);
-                                    printf("response time: %u\n", cph->responseTime);
-                                    printf("payload length: %u\n", cph->payloadLength);
+                                    printf("control code: %u\n", (cph->controlCode));
+                                    printf("response time: %u\n", (cph->responseTime));
+                                    printf("payload length: %u\n", ntohs(cph->payloadLength));
                                     printf("unpack successful\n");
                                     
                                     
@@ -435,8 +445,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer += 8;
                                         memcpy(controlResponseBuffer, crp->dataString, 75);//to make it work
                                         controlResponseBuffer=controlResponseBuffer-8;
-                                        
-                                        //pack(controlResponsePayloadBuffer, "s", crp->dataString);
+
                                         
                                         /*To test from sending side:*/
                                         FILE *fp;
@@ -459,28 +468,90 @@ public: int estalblishRouter(uint16_t controlPort)
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. Routing Table will be populated\n",hex);
                                         struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
-                                        //controlBuffer +=8;
+                                        controlBuffer +=8;
                                         //call to unpack to extract payload using args as: 16(H), 16(H), 16(H), 16(H), 16(H), 16(H), 32(L)
                                         
                                         
-                                        unpack(controlBuffer, "LCCH HH HHHHL HHHHL HHHHL HHHHL HHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
+//                                        unpack(controlBuffer, "LCCHHHHHHHLHHHHLHHHHLHHHHLHHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
                                         
-                                        printf("unpacking again for code %s \n", hex);
-                                        printf("--------HEADER CONTAINS---------\n");
-                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
-                                        printf("dest IP: %s\n", str);
-                                        printf("control code: %u\n", cph->controlCode);
-                                        printf("response time: %u\n", cph->responseTime);
-                                        printf("payload length: %u\n", cph->payloadLength);
+                                        
                                         printf("--------PAYLOAD CONTAINS--------\n");
-                                        printf("No. of nodes: %u\n",cpp->nodes);
-                                        printf("Update Interval: %u\n",cpp->updateInterval);
+                                        
+                                        
+                                        memcpy(&cpp->nodes, controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        printf("No. of nodes: %u\n",ntohs(cpp->nodes));
+                                        memcpy(&cpp->updateInterval, controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        printf("Update Interval: %u\n",ntohs(cpp->updateInterval));
+                                        
+                                        //make cases according to number of routers
+                                        
+                                        memcpy(&cpp->routerID[0], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerPort[0], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->dataPort[0], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->metric[0], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerIP[0], controlBuffer, 4);
+                                        controlBuffer+=4;
+                                        //done for one router
+                                        memcpy(&cpp->routerID[1], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerPort[1], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->dataPort[1], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->metric[1], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerIP[1], controlBuffer, 4);
+                                        controlBuffer+=4;
+                                        //done for two routers
+                                        memcpy(&cpp->routerID[2], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerPort[2], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->dataPort[2], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->metric[2], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerIP[2], controlBuffer, 4);
+                                        controlBuffer+=4;
+                                        //done for 3 routers
+                                        memcpy(&cpp->routerID[3], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerPort[3], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->dataPort[3], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->metric[3], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerIP[3], controlBuffer, 4);
+                                        controlBuffer+=4;
+                                        //done for 4
+                                        memcpy(&cpp->routerID[4], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerPort[4], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->dataPort[4], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->metric[4], controlBuffer, 2);
+                                        controlBuffer+=2;
+                                        memcpy(&cpp->routerIP[4], controlBuffer, 4);
+                                        controlBuffer+=4;
+                                        controlBuffer-=72;
+                                        //done for 5
+                                        
+                                        
+                                        
                                         for(i=0;i<5;i++)
                                         {
-                                        printf("Router ID [%d] : %u\n",i+1, cpp->routerID[i]);
-                                        printf("Router Port [%d] : %u\n",i+1,cpp->routerPort[i]);
-                                        printf("Data Port [%d] : %u\n",i+1, cpp->dataPort[i]);
-                                        printf("Metric [%d] : %u\n",i+1, cpp->metric[i]);
+                                        printf("Router ID [%d] : %u\n",i+1, ntohs(cpp->routerID[i]));
+                                        printf("Router Port [%d] : %u\n",i+1,ntohs(cpp->routerPort[i]));
+                                        printf("Data Port [%d] : %u\n",i+1, ntohs(cpp->dataPort[i]));
+                                        printf("Metric [%d] : %u\n",i+1, ntohs(cpp->metric[i]));
                                         }
                                         char * str1= inet_ntoa(*(struct in_addr *)&cpp->routerIP[0]);
                                         printf("Router IP [1]: %s\n", str1);

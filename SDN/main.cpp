@@ -389,11 +389,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("--------HEADER CONTAINS--------\n");
                                     struct controlPacketHeader *cph =  (struct controlPacketHeader *) malloc(sizeof(struct controlPacketHeader));
                                     
-                                    //temp->destinationIP=(controlHeaderBuffer[0] << 0) | (controlHeaderBuffer[1] << 8) |(controlHeaderBuffer[2] << 16) | (controlHeaderBuffer[3] << 24);
-                                    //temp->controlCode=(controlHeaderBuffer[4] << 8) | controlHeaderBuffer[4];
-                                    //temp->responseTime=(controlHeaderBuffer[5] << 8) | controlHeaderBuffer[5];
-                                    //temp->payloadLength=(controlHeaderBuffer[6] << 0) | (controlHeaderBuffer[7] << 8);
-                                    
                                     //call to unpack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
                                     unpack(controlBuffer, "LCCH", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength);
                                     
@@ -415,8 +410,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. Academic Integrity Response will be generated\n", hex);
                                         
-                                        controlResponseBuffer = static_cast<unsigned char *>(malloc(1024));
-                                        controlResponsePayloadBuffer = static_cast<unsigned char *>(malloc(1024));
+                                        controlResponseBuffer = new unsigned char [1024];
+                                        controlResponsePayloadBuffer = new unsigned char [1024];
                                         struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                         struct controlResponsePayload *crp = (struct controlResponsePayload *) malloc(sizeof(struct controlResponsePayload));
                                         

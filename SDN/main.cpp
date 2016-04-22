@@ -312,8 +312,14 @@ public: int estalblishRouter(uint16_t controlPort)
             {
                 perror("ERROR IN SELECT SYSTEM CALL");
             }
-            else    //good select
+            else if(select(fdMaxNumber+1, &tempRead_fds, NULL, NULL, &selectCallTimer)==0)
             {
+             //select with no timely response
+            }
+            else
+            {
+                //good select with timely response
+                
                 for(int i=0;i<=fdMaxNumber+1;i++)
                 {
                     if(FD_ISSET(i, &tempRead_fds))
@@ -593,6 +599,7 @@ public: int estalblishRouter(uint16_t controlPort)
                     }
                 }//for of iterating through connections ends
             }//else of good select ends
+            
         }//for(;;) ends
         
     }// estalblishRouter ends

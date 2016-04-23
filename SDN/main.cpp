@@ -411,7 +411,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("--------HEADER CONTAINS--------\n");
                                     char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
                                     printf("dest IP: %s\n", str);
-                                    printf("control code: %u\n", (cph->controlCode));
+                                    printf("control code: %u\n", (cph->controlCode));   //don't use ntohs for 8bit
                                     printf("response time: %u\n", (cph->responseTime));
                                     printf("payload length: %u\n", ntohs(cph->payloadLength));
                                     printf("unpack successful\n");
@@ -468,7 +468,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. Routing Table will be populated\n",hex);
                                         struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
-                                        controlBuffer +=8;
                                         //call to unpack to extract payload using args as: 16(H), 16(H), 16(H), 16(H), 16(H), 16(H), 32(L)
                                         
                                         
@@ -477,73 +476,197 @@ public: int estalblishRouter(uint16_t controlPort)
                                         
                                         printf("--------PAYLOAD CONTAINS--------\n");
                                         
-                                        
+                                        controlBuffer+=8;
                                         memcpy(&cpp->nodes, controlBuffer, 2);
                                         controlBuffer+=2;
                                         printf("No. of nodes: %u\n",ntohs(cpp->nodes));
                                         memcpy(&cpp->updateInterval, controlBuffer, 2);
-                                        controlBuffer+=2;
+                                        controlBuffer-=10;
                                         printf("Update Interval: %u\n",ntohs(cpp->updateInterval));
                                         
                                         //make cases according to number of routers
-                                        
-                                        memcpy(&cpp->routerID[0], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerPort[0], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->dataPort[0], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->metric[0], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerIP[0], controlBuffer, 4);
-                                        controlBuffer+=4;
-                                        //done for one router
-                                        memcpy(&cpp->routerID[1], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerPort[1], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->dataPort[1], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->metric[1], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerIP[1], controlBuffer, 4);
-                                        controlBuffer+=4;
-                                        //done for two routers
-                                        memcpy(&cpp->routerID[2], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerPort[2], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->dataPort[2], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->metric[2], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerIP[2], controlBuffer, 4);
-                                        controlBuffer+=4;
-                                        //done for 3 routers
-                                        memcpy(&cpp->routerID[3], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerPort[3], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->dataPort[3], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->metric[3], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerIP[3], controlBuffer, 4);
-                                        controlBuffer+=4;
-                                        //done for 4
-                                        memcpy(&cpp->routerID[4], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerPort[4], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->dataPort[4], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->metric[4], controlBuffer, 2);
-                                        controlBuffer+=2;
-                                        memcpy(&cpp->routerIP[4], controlBuffer, 4);
-                                        controlBuffer+=4;
-                                        controlBuffer-=72;
-                                        //done for 5
-                                        
+                                        if(ntohs(cpp->nodes)==1)
+                                        {
+                                            controlBuffer+=12;
+                                            memcpy(&cpp->routerID[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[0], controlBuffer, 4);
+                                            controlBuffer-=22;
+                                        }
+                                        if(ntohs(cpp->nodes)==2)
+                                        {
+                                            controlBuffer+=12;
+                                            memcpy(&cpp->routerID[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[0], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[1], controlBuffer, 4);
+                                            controlBuffer-=34;
+                                        }
+                                        if(ntohs(cpp->nodes)==3)
+                                        {
+                                            controlBuffer+=12;
+                                            memcpy(&cpp->routerID[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[0], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[1], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[2], controlBuffer, 4);
+                                            controlBuffer-=46;
+                                        }
+                                        if(ntohs(cpp->nodes)==4)
+                                        {
+                                            controlBuffer+=12;
+                                            memcpy(&cpp->routerID[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[0], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[1], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[2], controlBuffer, 4);
+                                            controlBuffer+=4;
+   
+                                            memcpy(&cpp->routerID[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[3], controlBuffer, 4);
+                                            controlBuffer-=58;
+                                            
+                                        }
+                                        if(ntohs(cpp->nodes)==5)
+                                        {
+                                            controlBuffer+=12;
+                                            memcpy(&cpp->routerID[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[0], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[0], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[1], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[1], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[2], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[2], controlBuffer, 4);
+                                            controlBuffer+=4;
+                                            
+                                            memcpy(&cpp->routerID[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[3], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[3], controlBuffer, 4);
+                                            controlBuffer+=4;
+
+                                            memcpy(&cpp->routerID[4], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerPort[4], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->dataPort[4], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->metric[4], controlBuffer, 2);
+                                            controlBuffer+=2;
+                                            memcpy(&cpp->routerIP[4], controlBuffer, 4);
+                                            controlBuffer-=70;
+                                        }
+                                        //done for 5 routers
                                         
                                         
                                         for(i=0;i<5;i++)

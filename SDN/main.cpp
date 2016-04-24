@@ -21,7 +21,7 @@
  * This contains the main function. Add further description here....
  */
 
-//  Code to implement Distance Vector Routing Protocol
+//  Code to implement a Distance Vector Routing Protocol
 //  MBP111.0138.B16
 //  System Serial: C02P4SP9G3QH
 //  main.cpp
@@ -60,23 +60,26 @@
 
 //using namespace std;
 
+// for ROUTING UPDATE
 struct routingEntry
 {
     uint16_t destinationRouterPort;
-    struct in_addr destinationRouterIP;
-    uint16_t routerID;
+    uint32_t destinationRouterIP;
+    uint16_t destinationRouterID;
     uint16_t metricCost;
     uint16_t padding;
 };
 
+// for ROUTING UPDATE
 struct updatePacket
 {
     uint16_t entryCount;
     uint16_t localRouterPort;
-    struct in_addr localRouterIP;
+    uint32_t localRouterIP;
     routingEntry routingEntries [];
 };
 
+//DUMP FOR ALL DATA RCVD FROM THE CONTROLLER
 struct controlPacketPayload
 {
     uint32_t routerIP[5];
@@ -93,15 +96,23 @@ struct controlPacketPayload
     
 };
 
+
 struct controlResponsePayload
 {
-    char *dataString;
-    uint16_t routerID;
-    uint16_t padding;
-    uint16_t nextHop;
-    uint16_t metric;
     uint8_t transferID;
     uint8_t TTL;
+};
+
+//CONTROL RESPONSE FOR ROUTING TABLE (0x02)
+struct topologyTable
+{
+    uint16_t routerID;
+    uint32_t destinationIP;
+    uint16_t padding;
+    uint16_t nextHopRouterID;
+    uint16_t metric;
+    bool neighbor;
+    int holdTime;
 };
 
 
@@ -434,16 +445,17 @@ public: int estalblishRouter(uint16_t controlPort)
                                         crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
                                         crh->controlCode=0;
                                         crh->responseCode=0;
-                                        crp->dataString=static_cast<char *>(malloc(256));
-                                        strcpy(crp->dataString, "I, agautam2, have read and understood the course academic integrity policy.\0");
+                                        char *dataString;
+                                        dataString=static_cast<char *>(malloc(256));
+                                        strcpy(dataString, "I, agautam2, have read and understood the course academic integrity policy.\0");
                                         crh->payloadLength=sizeof("I, agautam2, have read and understood the course academic integrity policy.")-1;
                                         printf("done writing\n");
                                         fflush(stdout);
                                         
                                         //call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
-                                        pack(controlResponseBuffer, "LCCHC", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength);
+                                        pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength);
                                         controlResponseBuffer += 8;
-                                        memcpy(controlResponseBuffer, crp->dataString, 75);//to make it work
+                                        memcpy(controlResponseBuffer, dataString, 75);//to make it work
                                         controlResponseBuffer=controlResponseBuffer-8;
                                         
                                         
@@ -464,6 +476,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     else if(cph->controlCode==1)
                                     {
                                         //INIT-BUILD RT-NO RESPONSE REQUIRED
+                                        
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. Routing Table will be populated\n",hex);
@@ -471,7 +484,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //call to unpack to extract payload using args as: 16(H), 16(H), 16(H), 16(H), 16(H), 16(H), 32(L)
                                         
                                         
-                                        unpack(controlBuffer, "LCCHHHHHHHLHHHHLHHHHLHHHHLHHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
+                                        //unpack(controlBuffer, "LCCHHHHHHHLHHHHLHHHHLHHHHLHHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
                                         
                                         
                                         printf("--------PAYLOAD CONTAINS--------\n");
@@ -669,7 +682,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //done for 5 routers
                                         
                                         
-                                        for(i=0;i<5;i++)
+                                        for(i=0;i<(ntohs(cpp->nodes));i++)
                                         {
                                             printf("Router ID [%d] : %u\n",i+1, ntohs(cpp->routerID[i]));
                                             printf("Router Port [%d] : %u\n",i+1,ntohs(cpp->routerPort[i]));
@@ -686,6 +699,42 @@ public: int estalblishRouter(uint16_t controlPort)
                                         printf("Router IP [4]: %s\n", str4);
                                         char * str5= inet_ntoa(*(struct in_addr *)&cpp->routerIP[4]);
                                         printf("Router IP [5]: %s\n", str5);
+                                        
+                                        controlResponseBuffer = new unsigned char [1024];
+                                        struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
+                                        printf("trying to pack\n");
+                                        crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
+                                        printf("done 1\n");
+                                        crh->controlCode=1;
+                                        printf("done 2\n");
+                                        crh->responseCode=0;
+                                        printf("done 3\n");
+                                        crh->payloadLength=0;
+                                        printf("done 4\n");
+                                        pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
+                                        printf("pack successful\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send serialized header\n");
+                                        }
+                                        
+                                        /*PREPARE UPDATES and STORE IT IN STRUCTS THEN SEND THAT STRUCT OVER UDP UPDATES*/
+                                        struct updatePacket *up = (struct updatePacket *) malloc(sizeof(struct updatePacket));
+                                        struct routingEntry *re = (struct routingEntry *) malloc(sizeof(struct routingEntry));
+                                        up->entryCount=cpp->nodes;
+                                        up->localRouterIP=cpp->routerIP[0];
+                                        up->localRouterPort=cpp->routerPort[0];
+                                        
+                                        for(int i=0;i<ntohs(up->entryCount);i++)
+                                        {
+                                            up->routingEntries[i].destinationRouterIP=cpp->routerIP[i+1];
+                                            up->routingEntries[i].destinationRouterPort=cpp->routerPort[i+1];
+                                            up->routingEntries[i].padding=0;
+                                            up->routingEntries[i].destinationRouterID=cpp->routerID[i+1];
+                                            up->routingEntries[i].metricCost=cpp->metric[i+1];
+                                        }
                                         
                                         
                                     }
@@ -746,7 +795,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlBuffer+=1;
                                         memcpy(&cpp->sequenceNumber, controlBuffer, 2);
                                         controlBuffer+=2;
-                                        memcpy(&cpp->fileName, controlBuffer, 10);      //hard code file name bytes - agautam2 
+                                        memcpy(&cpp->fileName, controlBuffer, cph->payloadLength);      //make it equal to payload size - agautam2
                                         controlBuffer-=8;
                                         
 //                                        printf("unpacking again for code %s \n", hex);

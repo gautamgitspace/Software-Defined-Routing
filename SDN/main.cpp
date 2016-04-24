@@ -795,7 +795,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlBuffer+=1;
                                         memcpy(&cpp->sequenceNumber, controlBuffer, 2);
                                         controlBuffer+=2;
-                                        memcpy(&cpp->fileName, controlBuffer, cph->payloadLength);      //make it equal to payload size - agautam2
+                                        memcpy(&cpp->fileName, controlBuffer, (cph->payloadLength-8));      //make it equal to payload size - agautam2
                                         controlBuffer-=8;
                                         
 //                                        printf("unpacking again for code %s \n", hex);

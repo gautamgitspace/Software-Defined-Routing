@@ -532,6 +532,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //for building routing table
                                         struct routingTable localBaseTopologyTable [ntohs(cpp->nodes)+1];
                                         uint16_t neReachability [10];
+                                        uint16_t dv[15][15];
                                         
                                         //set ne flag to false initially
                                         for(int i=0;i <=ntohs(cpp->nodes); i++)
@@ -942,6 +943,24 @@ public: int estalblishRouter(uint16_t controlPort)
                                             printf("Time since router update: %u\n",localBaseTopologyTable[i].uptime);
                                             
                                         }
+                                        /*6. initialiase DV */
+                                        for(int i=1; i<=ntohs(cpp->nodes); i++)
+                                        {
+                                            for(int j=1; j<=ntohs(cpp->nodes); j++)
+                                            {
+                                                if(i!=j)
+                                                {
+                                                    dv[i][j]=INF;
+                                                }
+                                                else if(i==j)
+                                                {
+                                                    dv[i][j]=0;
+                                                }
+                                            }
+                                        }
+
+                                         
+                                        
                                         
                                         
                                     }

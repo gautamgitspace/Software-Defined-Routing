@@ -959,19 +959,17 @@ public: int estalblishRouter(uint16_t controlPort)
                                             }
                                         }
 
-                                         
-                                        
-                                        
-                                        
-                                    }
+                                    } //cc1 ends
                                     else if(cph->controlCode==2)
                                     {
                                         //ROUTING TABLE-RT RESPONSE REQUIRED
                                         printf("control code 0x02 found. Routing Table requested. Will be sent\n");
-                                    }
+                                    }//cc2 ends
                                     else if(cph->controlCode==3)
                                     {
                                         //UPDATE-UPDATE RT-NO RESPONSE REQUIRED EXCEPT HEADER
+                                        
+                                        /*The controller uses this to change/update the link cost between between the router receiving this message and a NEIGHBORING router. This control message will always be sent in pairs to both the routers involved in a link.*/
                                         
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
@@ -1001,6 +999,18 @@ public: int estalblishRouter(uint16_t controlPort)
                                         printf("done 3\n");
                                         crh->payloadLength=0;
                                         printf("done 4\n");
+                                        
+                                        /*DO THE FOLLOWING:
+                                         1. Read router ID1 and router ID2 and the cost to be updated. (ID1 and ID2 will always be neighbors separated by a link)
+                                         2. Check if cost is INF or something else
+                                         3. if ID1 = whoAmiID and ID2 is a ne for whoAmiID in the LBTT, update neReaachability with the new cost
+                                         4. Set isPresent false.
+                                         5. Set DV
+                                         6. Call Bellman-ford
+                                         */
+                                        
+                                        
+                                        //send response
                                         pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
                                         printf("pack successful\n");
                                         int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
@@ -1010,8 +1020,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                             printf("failed to send control response header\n");
                                         }
 
-                                        
-                                    }
+                                    }//cc3 ends
                                     else if(cph->controlCode==4)
                                     {
                                         //CRASH-TURN OFF ROUTING OPERATIONS- NO RESPONSE REQUIRED EXCEPT HEADER
@@ -1037,8 +1046,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                         {
                                             printf("failed to send control response header\n");
                                         }
+                                        //system exit and all operations stop
                                         exit(0);
-                                    }
+                                    }//cc4 ends
                                     else if(cph->controlCode==5)
                                     {
                                         //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED EXCEPT HEADER
@@ -1088,7 +1098,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                             printf("failed to send control response header\n");
                                         }
 
-                                    }
+                                    }//cc5 ends
                                     else if(cph->controlCode==6)
                                     {
                                         //SENDFILESTATS-RESPONSE REQUIRED
@@ -1110,19 +1120,19 @@ public: int estalblishRouter(uint16_t controlPort)
 //                                        printf("payload length: %u\n", cph->payloadLength);
                                         printf("--------PAYLOAD CONTAINS--------\n");
                                         printf("Stats needed for ID: %u\n",cpp->transferID);
-                                    }
+                                    }//cc6 ends
                                     else if(cph->controlCode==7)
                                     {
                                         //LASTDATAPACKET-RESPONSE REQUIRED
                                         printf("control code 0x07 found. Last data packet needs to be sent\n");
-                                    }
+                                    }//cc7 ends
                                     else if(cph->controlCode==8)
                                     {
                                         //SECONDLASTDATAPACKET-RESPONSE REQUIRED
                                         printf("control code 0x08 found. Second Last data packet needs to be sent\n");
-                                    }
+                                    }//cc8 ends
                                     
-                                }
+                                } //readBytes manipulation ends
                                 
                             }//end of bad accept
                         }

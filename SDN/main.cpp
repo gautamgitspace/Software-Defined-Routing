@@ -518,11 +518,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                         
                                         //unpack(controlBuffer, "LCCHHHHHHHLHHHHLHHHHLHHHHLHHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
                                         
-                                        //for building routing table
                                         
                                         
                                         printf("--------PAYLOAD CONTAINS--------\n");
-                                        
                                         controlBuffer+=8;
                                         memcpy(&cpp->nodes, controlBuffer, 2);
                                         controlBuffer+=2;
@@ -531,7 +529,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlBuffer-=10;
                                         printf("Update Interval: %u\n",ntohs(cpp->updateInterval));
                                         
+                                        //for building routing table
                                         struct routingTable localBaseTopologyTable [ntohs(cpp->nodes)+1];
+                                        uint16_t neReachability [10];
+                                        
+                                        //set ne flag to false initially
                                         for(int i=0;i <=ntohs(cpp->nodes); i++)
                                         {
                                             localBaseTopologyTable[i].ne=false;
@@ -892,6 +894,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         
                                         for(int i=0;i < ntohs(cpp->nodes); i++)
                                         {
+                                            //ne flag set to false in the starting
                                             localBaseTopologyTable[i].destinationRouterID=cpp->routerID[i];
                                             localBaseTopologyTable[i].nextHopID=0;
                                             localBaseTopologyTable[i].metricCost=INF;
@@ -901,13 +904,25 @@ public: int estalblishRouter(uint16_t controlPort)
                                             localBaseTopologyTable[i].uptime=INF;
                                         }
                                         
-                                        /*3. find number of neighbors populate details for them*/
+                                        /*3. find number of neighbors and who are ne for which and populate details for them*/
                                         printf("Neighbor count for Router ID[%u] is: %d\n", ntohs(whoAmiID),neighborCount);
                                         
                                         for(int i=1;i<=ntohs(cpp->nodes); i++)
                                         {
                                             printf("[%d] is NE (YES = 1 NO = 0) : %d\n",i, localBaseTopologyTable[i].ne);
                                         }
+                                        
+                                        /*4. build my topology i.e. I KNOW ABOUT MY NEIGHBORS*/
+                                        for(int i=1;i<=ntohs(cpp->nodes);i++)
+                                        {
+                                           if(localBaseTopologyTable[i].ne==true)
+                                           {
+                                               neReachability[i]=ntohs(cpp->metric[i-1]);
+                                               printf("NE [%d] is reachable through me [%u] by a cost of %u\n", ntohs(cpp->routerID[i-1]), ntohs(whoAmiID), neReachability[i]);
+                                           }
+                                        }
+                                        
+                                        
                                         
                                     }
                                     else if(cph->controlCode==2)

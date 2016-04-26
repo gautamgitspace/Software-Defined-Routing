@@ -892,13 +892,13 @@ public: int estalblishRouter(uint16_t controlPort)
                                          e. source router IP
                                         */
                                         
-                                        for(int i=0;i < ntohs(cpp->nodes); i++)
+                                        for(int i=1; i<=ntohs(cpp->nodes); i++)
                                         {
                                             //ne flag set to false in the starting
-                                            localBaseTopologyTable[i].destinationRouterID=cpp->routerID[i];
+                                            localBaseTopologyTable[i].destinationRouterID=cpp->routerID[i-1];
                                             localBaseTopologyTable[i].nextHopID=0;
                                             localBaseTopologyTable[i].metricCost=INF;
-                                            localBaseTopologyTable[i].destinationIP=cpp->routerIP[i];
+                                            localBaseTopologyTable[i].destinationIP=cpp->routerIP[i-1];
                                             localBaseTopologyTable[i].sourceRouterIP=whoAmiIP;
                                             localBaseTopologyTable[i].active=false;
                                             localBaseTopologyTable[i].uptime=INF;
@@ -922,6 +922,26 @@ public: int estalblishRouter(uint16_t controlPort)
                                            }
                                         }
                                         
+                                        
+                                        /*5. update own cost, own next hop id and own uptime*/
+                                        localBaseTopologyTable[ntohs(whoAmiID)].metricCost=0;
+                                        localBaseTopologyTable[ntohs(whoAmiID)].nextHopID=whoAmiID;
+                                        localBaseTopologyTable[ntohs(whoAmiID)].uptime=0;
+                                        
+                                        /*PRINT localBaseTopologyTable for TESTING*/
+                                        for(int i=1;i<=ntohs(cpp->nodes);i++)
+                                        {
+                                            char * src = inet_ntoa(*(struct in_addr*)&whoAmiIP);
+                                            printf("source Router IP: %s\n", src);
+                                            printf("Destination Router ID: %u\n", ntohs(localBaseTopologyTable[i].destinationRouterID));
+                                            printf("next Hop ID: %u\n", ntohs(localBaseTopologyTable[i].nextHopID));
+                                            printf("metric Cost: %u\n", ntohs(localBaseTopologyTable[i].metricCost));
+                                            char * dest= inet_ntoa(*(struct in_addr *)&localBaseTopologyTable[i].destinationIP);
+                                            printf("Destination Router IP: %s\n", dest);
+                                            printf("Active[1] Inactive[0]: %d\n", localBaseTopologyTable[i].active);
+                                            printf("Time since router update: %u\n",localBaseTopologyTable[i].uptime);
+                                            
+                                        }
                                         
                                         
                                     }

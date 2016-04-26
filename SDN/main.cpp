@@ -985,16 +985,31 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->metric[0], controlBuffer, 2);
                                         controlBuffer-=6;
                                         
-                                        //printf("unpacking again for code %s \n", hex);
-//                                        printf("--------HEADER CONTAINS---------\n");
-//                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
-//                                        printf("dest IP: %s\n", str);
-//                                        printf("control code: %u\n", cph->controlCode);
-//                                        printf("response time: %u\n", cph->responseTime);
-//                                        printf("payload length: %u\n", cph->payloadLength);
                                         printf("--------PAYLOAD CONTAINS--------\n");
-                                        printf("Router ID for which cost is to be updated: %u\n",cpp->routerID[0]);
-                                        printf("Cost to be updated to %u\n",cpp->metric[0]);
+                                        printf("Router ID for which cost is to be updated: %u\n",ntohs(cpp->routerID[0]));
+                                        printf("Cost to be updated to %u\n",ntohs(cpp->metric[0]));
+                                        
+                                        printf("Trying to pack\n");
+                                        controlResponseBuffer = new unsigned char [1024];
+                                        struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
+                                        printf("trying to pack\n");
+                                        crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
+                                        printf("done 1\n");
+                                        crh->controlCode=3;
+                                        printf("done 2\n");
+                                        crh->responseCode=0;
+                                        printf("done 3\n");
+                                        crh->payloadLength=0;
+                                        printf("done 4\n");
+                                        pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
+                                        printf("pack successful\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send control response header\n");
+                                        }
+
                                         
                                     }
                                     else if(cph->controlCode==4)
@@ -1002,6 +1017,26 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //CRASH-TURN OFF ROUTING OPERATIONS- NO RESPONSE REQUIRED EXCEPT HEADER
                                         printf("control code 0x04 found. Router will crash now\n");
                                         //generate response before exiting
+                                        printf("Trying to pack\n");
+                                        controlResponseBuffer = new unsigned char [1024];
+                                        struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
+                                        printf("trying to pack\n");
+                                        crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
+                                        printf("done 1\n");
+                                        crh->controlCode=4;
+                                        printf("done 2\n");
+                                        crh->responseCode=0;
+                                        printf("done 3\n");
+                                        crh->payloadLength=0;
+                                        printf("done 4\n");
+                                        pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
+                                        printf("pack successful\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send control response header\n");
+                                        }
                                         exit(0);
                                     }
                                     else if(cph->controlCode==5)
@@ -1011,8 +1046,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. File needs to be sent. Waiting for payload...\n",hex);
                                         struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
-                                        //printf("size of filename: %d", sizeof(cpp->fileName));
-                                        //unpack(controlBuffer, "LCCHLCCH256s", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength ,&cpp->routerIP[0], &cpp->TTL, &cpp->transferID, &cpp->sequenceNumber, &cpp->fileName);
                                         controlBuffer+=8;
                                         
                                         memcpy(&cpp->routerIP, controlBuffer, 4);
@@ -1026,23 +1059,35 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->fileName, controlBuffer, (cph->payloadLength-8));      //make it equal to payload size - agautam2
                                         controlBuffer-=8;
                                         
-//                                        printf("unpacking again for code %s \n", hex);
-//                                        printf("--------HEADER CONTAINS---------\n");
-//                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
-//                                        printf("dest IP: %s\n", str);
-//                                        printf("control code: %u\n", cph->controlCode);
-//                                        printf("response time: %u\n", cph->responseTime);
-//                                        printf("payload length: %u\n", cph->payloadLength);
-                                        
                                         printf("--------PAYLOAD CONTAINS--------\n");
                                         char * str1= inet_ntoa(*(struct in_addr *)&cpp->routerIP[0]);
                                         printf("File to be sent: %s\n",cpp->fileName);
                                         printf("Router IP to which file is to be sent: %s\n",str1);
                                         printf("TTL Value: %u\n", cpp->TTL);
-                                        printf("Init Seq num: %u\n", cpp->sequenceNumber);
+                                        printf("Init Seq num: %u\n", ntohs(cpp->sequenceNumber));
                                         printf("TransferID: %u\n",cpp->transferID);
                                         
+                                        printf("Trying to pack\n");
+                                        controlResponseBuffer = new unsigned char [1024];
+                                        struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
+                                        printf("trying to pack\n");
+                                        crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
+                                        printf("done 1\n");
+                                        crh->controlCode=5;
+                                        printf("done 2\n");
+                                        crh->responseCode=0;
+                                        printf("done 3\n");
+                                        crh->payloadLength=0;
+                                        printf("done 4\n");
+                                        pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
+                                        printf("pack successful\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
                                         
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send control response header\n");
+                                        }
+
                                     }
                                     else if(cph->controlCode==6)
                                     {
@@ -1076,7 +1121,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //SECONDLASTDATAPACKET-RESPONSE REQUIRED
                                         printf("control code 0x08 found. Second Last data packet needs to be sent\n");
                                     }
-                                    
                                     
                                 }
                                 

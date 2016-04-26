@@ -92,6 +92,7 @@ struct routingTable
 {
     int uptime;
     
+    //REQD FIELDS
     uint16_t destinationRouterID;
     uint16_t padding;
     uint16_t nextHopID;
@@ -517,6 +518,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         
                                         //unpack(controlBuffer, "LCCHHHHHHHLHHHHLHHHHLHHHHLHHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
                                         
+                                        //for building routing table
+                                        
                                         
                                         printf("--------PAYLOAD CONTAINS--------\n");
                                         
@@ -528,6 +531,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlBuffer-=10;
                                         printf("Update Interval: %u\n",ntohs(cpp->updateInterval));
                                         
+                                        struct routingTable localBaseTopologyTable [ntohs(cpp->nodes)+1];
+                                        for(int i=0;i <=ntohs(cpp->nodes); i++)
+                                        {
+                                            localBaseTopologyTable[i].ne=false;
+                                        }
                                         //make cases according to number of routers
                                         if(ntohs(cpp->nodes)==1)
                                         {
@@ -704,21 +712,26 @@ public: int estalblishRouter(uint16_t controlPort)
                                             {
                                                 printf("##ne count inc CASE 1\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[0])].ne=true;
+                                                //printf("[%d] is NE (YES = 1 NO = 0) : %d\n",1, localBaseTopologyTable[0].ne);
                                             }
                                             if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
                                             {
                                                 printf("##ne count inc CASE 2\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[1])].ne=true;
                                             }
                                             if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
                                             {
                                                 printf("##ne count inc CASE 3\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[2])].ne=true;
                                             }
                                             if(ntohs(cpp->metric[3])!= 65535 && (ntohs(cpp->metric[3])!=0))
                                             {
                                                 printf("##ne count inc CASE 4\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[3])].ne=true;
                                             }
                                             
                                             //find whoAmiID
@@ -862,12 +875,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                         }
                                         
                                         /*PREPARE LOCAL RT*/
-                                        struct routingTable localBaseTopologyTable [ntohs(cpp->nodes)+1];
                                         
-                                        /*1. find who am i? - ID to which the controller msg is directed*/
-                                        //whoAmiID=cpp->routerID[0];
+                                        /*1. find who am i? - ID to which the controller msg is directed - done in loops*/
                                         printf("whoAmiID is - [%u]\n", ntohs(whoAmiID));
-                                        //whoAmiIP=cpp->routerIP[0];
                                         char * str = inet_ntoa(*(struct in_addr *)&whoAmiIP);
                                         printf("whoAmiIP is - [%s]\n", str);
                                          
@@ -887,14 +897,17 @@ public: int estalblishRouter(uint16_t controlPort)
                                             localBaseTopologyTable[i].metricCost=INF;
                                             localBaseTopologyTable[i].destinationIP=cpp->routerIP[i];
                                             localBaseTopologyTable[i].sourceRouterIP=whoAmiIP;
-                                            localBaseTopologyTable[i].ne=false;
                                             localBaseTopologyTable[i].active=false;
                                             localBaseTopologyTable[i].uptime=INF;
                                         }
                                         
                                         /*3. find number of neighbors populate details for them*/
-                                        printf("Neighbor count for [%u] is: %d\n", ntohs(whoAmiIP),neighborCount);
+                                        printf("Neighbor count for Router ID[%u] is: %d\n", ntohs(whoAmiID),neighborCount);
                                         
+                                        for(int i=1;i<=ntohs(cpp->nodes); i++)
+                                        {
+                                            printf("[%d] is NE (YES = 1 NO = 0) : %d\n",i, localBaseTopologyTable[i].ne);
+                                        }
                                         
                                     }
                                     else if(cph->controlCode==2)

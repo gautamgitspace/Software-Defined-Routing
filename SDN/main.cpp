@@ -196,6 +196,12 @@ public: Router()
     {
         printf("Default constructor intialised\n");
     }
+
+// Pseudo code for algo - Pg 373 Ross Kurose Chapter 4
+public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], int nodeCount, uint16_t myID, struct routingTable * lbtt)
+    {
+        return 0;
+    }
     
 public: int estalblishRouter(uint16_t controlPort)
     {
@@ -1006,9 +1012,15 @@ public: int estalblishRouter(uint16_t controlPort)
                                          3. if ID1 = whoAmiID and ID2 is a ne for whoAmiID in the LBTT, update neReaachability with the new cost
                                          4. Set isPresent false.
                                          5. Set DV
-                                         6. Call Bellman-ford
+                                         6. Call Bellman-Ford instance-1
+                                         7. Args for Bellman-Ford: 
+                                            a. pointer of routing table (algo will run on this table)
+                                            b. whoAmiID
+                                            c. no. of nodes
+                                            d. DV
                                          */
                                         
+                                    
                                         
                                         //send response
                                         pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);

@@ -60,23 +60,49 @@
 
 //using namespace std;
 
-// for ROUTING UPDATE
+// for ROUTING ENTRIES in a ROUTING UPDATE PACKET
 struct routingEntry
 {
-    uint16_t destinationRouterPort;
     uint32_t destinationRouterIP;
+    uint16_t destinationRouterPort;
+    uint16_t padding;
     uint16_t destinationRouterID;
     uint16_t metricCost;
-    uint16_t padding;
 };
 
-// for ROUTING UPDATE
-struct updatePacket
+/* for ROUTING UPDATE PACKET. A pointer of this struct will be used
+to do all the work related to a routing update and sent to other
+routers via UDP.
+*/
+ struct updatePacket
 {
-    uint16_t entryCount;
-    uint16_t localRouterPort;
-    uint32_t localRouterIP;
+    uint16_t numberOfUpdateFields;
+    uint16_t sourceRouterPort;
+    uint32_t sourceRouterIP;
     routingEntry routingEntries [];
+};
+
+
+/*For routing table at each router. A PART of it will be sent to the
+CONTROLLER. Make an array of struct whenever the info is to be loaded 
+into it and use it to store locally.
+ 
+ ----THIS IS DIFFERENT FROM A ROUTING UPDATE STRUCT----*/
+struct routingTable
+{
+    int uptime;
+    
+    uint16_t destinationRouterID;
+    uint16_t padding;
+    uint16_t nextHopID;
+    uint16_t metricCost;
+    //EXTRA FIELDS
+    uint32_t destinationIP;
+    uint32_t sourceRouterIP;
+    
+    bool ne;
+    bool active;
+    
 };
 
 //DUMP FOR ALL DATA RCVD FROM THE CONTROLLER
@@ -96,7 +122,7 @@ struct controlPacketPayload
     
 };
 
-
+//FOR CONTROL RESPONSE PAYLOAD - 1
 struct controlResponsePayload
 {
     uint8_t transferID;
@@ -115,7 +141,7 @@ struct topologyTable
     int holdTime;
 };
 
-
+//FOR CONTROL HEADER
 struct controlPacketHeader
 {
     uint32_t destinationIP;
@@ -124,6 +150,7 @@ struct controlPacketHeader
     uint16_t payloadLength;
 };
 
+//FOR CONTROL RESPONSE HEADER
 struct controlResponseHeader
 {
     uint32_t controllerIP;
@@ -158,7 +185,9 @@ class Router
     char host [1024];
     fd_set masterDescriptor;
     fd_set tempRead_fds;
-    int yes;
+    int yes, neighborCount;
+    uint16_t whoAmiID;
+    uint32_t whoAmiIP;
     
     /*All class-related variables go here*/
     
@@ -411,6 +440,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     
                                     memcpy(&cph->destinationIP, controlBuffer, 4);
                                     controlBuffer+=4;
+                                    whoAmiIP=cph->destinationIP;
                                     memcpy(&cph->controlCode, controlBuffer, 1);
                                     controlBuffer+=1;
                                     memcpy(&cph->responseTime, controlBuffer, 1);
@@ -475,7 +505,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                     }
                                     else if(cph->controlCode==1)
                                     {
-                                        //INIT-BUILD RT-NO RESPONSE REQUIRED
+                                        //INIT-BUILD RT-NO RESPONSE REQUIRED EXCEPT HEADER
+                                        neighborCount=0;
                                         
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
@@ -511,6 +542,14 @@ public: int estalblishRouter(uint16_t controlPort)
                                             controlBuffer+=2;
                                             memcpy(&cpp->routerIP[0], controlBuffer, 4);
                                             controlBuffer-=22;
+                                            //find whoAmiID
+                                            for(int i=0; i<ntohs(cpp->nodes);i++)
+                                            {
+                                                if(ntohs(cpp->metric[i])==0)
+                                                {
+                                                    whoAmiID=cpp->routerID[i];
+                                                }
+                                            }
                                         }
                                         if(ntohs(cpp->nodes)==2)
                                         {
@@ -536,6 +575,23 @@ public: int estalblishRouter(uint16_t controlPort)
                                             controlBuffer+=2;
                                             memcpy(&cpp->routerIP[1], controlBuffer, 4);
                                             controlBuffer-=34;
+                                            //find ne count
+                                            if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            //find whoAmiID
+                                            for(int i=0; i<ntohs(cpp->nodes);i++)
+                                            {
+                                                if(ntohs(cpp->metric[i])==0)
+                                                {
+                                                    whoAmiID=cpp->routerID[i];
+                                                }
+                                            }
                                         }
                                         if(ntohs(cpp->nodes)==3)
                                         {
@@ -572,6 +628,29 @@ public: int estalblishRouter(uint16_t controlPort)
                                             controlBuffer+=2;
                                             memcpy(&cpp->routerIP[2], controlBuffer, 4);
                                             controlBuffer-=46;
+                                            
+                                            //find ne count
+                                            if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            
+                                            //find whoAmiID
+                                            for(int i=0; i<ntohs(cpp->nodes);i++)
+                                            {
+                                                if(ntohs(cpp->metric[i])==0)
+                                                {
+                                                    whoAmiID=cpp->routerID[i];
+                                                }
+                                            }
                                         }
                                         if(ntohs(cpp->nodes)==4)
                                         {
@@ -620,6 +699,36 @@ public: int estalblishRouter(uint16_t controlPort)
                                             memcpy(&cpp->routerIP[3], controlBuffer, 4);
                                             controlBuffer-=58;
                                             
+                                            //find ne count
+                                            if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
+                                            {
+                                                printf("##ne count inc CASE 1\n");
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
+                                            {
+                                                printf("##ne count inc CASE 2\n");
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
+                                            {
+                                                printf("##ne count inc CASE 3\n");
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[3])!= 65535 && (ntohs(cpp->metric[3])!=0))
+                                            {
+                                                printf("##ne count inc CASE 4\n");
+                                                neighborCount++;
+                                            }
+                                            
+                                            //find whoAmiID
+                                            for(int i=0; i<ntohs(cpp->nodes);i++)
+                                            {
+                                                if(ntohs(cpp->metric[i])==0)
+                                                {
+                                                    whoAmiID=cpp->routerID[i];
+                                                }
+                                            }
                                         }
                                         if(ntohs(cpp->nodes)==5)
                                         {
@@ -678,6 +787,37 @@ public: int estalblishRouter(uint16_t controlPort)
                                             controlBuffer+=2;
                                             memcpy(&cpp->routerIP[4], controlBuffer, 4);
                                             controlBuffer-=70;
+                                            
+                                            //find ne count
+                                            if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[3])!= 65535 && (ntohs(cpp->metric[3])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            if(ntohs(cpp->metric[4])!= 65535 && (ntohs(cpp->metric[4])!=0))
+                                            {
+                                                neighborCount++;
+                                            }
+                                            
+                                            //find whoAmiID
+                                            for(int i=0; i<ntohs(cpp->nodes);i++)
+                                            {
+                                                if(ntohs(cpp->metric[i])==0)
+                                                {
+                                                    whoAmiID=cpp->routerID[i];
+                                                }
+                                            }
                                         }
                                         //done for 5 routers
                                         
@@ -711,30 +851,49 @@ public: int estalblishRouter(uint16_t controlPort)
                                         printf("done 3\n");
                                         crh->payloadLength=0;
                                         printf("done 4\n");
+                                        //send control response header
                                         pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
                                         printf("pack successful\n");
                                         int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
                                         
                                         if(ableToSend1<0)
                                         {
-                                            printf("failed to send serialized header\n");
+                                            printf("failed to send control response header\n");
                                         }
                                         
-                                        /*PREPARE UPDATES and STORE IT IN STRUCTS THEN SEND THAT STRUCT OVER UDP UPDATES*/
-                                        struct updatePacket *up = (struct updatePacket *) malloc(sizeof(struct updatePacket));
-                                        struct routingEntry *re = (struct routingEntry *) malloc(sizeof(struct routingEntry));
-                                        up->entryCount=cpp->nodes;
-                                        up->localRouterIP=cpp->routerIP[0];
-                                        up->localRouterPort=cpp->routerPort[0];
+                                        /*PREPARE LOCAL RT*/
+                                        struct routingTable localBaseTopologyTable [ntohs(cpp->nodes)+1];
                                         
-                                        for(int i=0;i<ntohs(up->entryCount);i++)
+                                        /*1. find who am i? - ID to which the controller msg is directed*/
+                                        //whoAmiID=cpp->routerID[0];
+                                        printf("whoAmiID is - [%u]\n", ntohs(whoAmiID));
+                                        //whoAmiIP=cpp->routerIP[0];
+                                        char * str = inet_ntoa(*(struct in_addr *)&whoAmiIP);
+                                        printf("whoAmiIP is - [%s]\n", str);
+                                         
+                                        /*
+                                         2. find total number of nodes, run loop and POPULATE whatever was read from control message:
+                                         a. router IDs
+                                         b. next hop router ID
+                                         c. cost
+                                         d. destination router IP
+                                         e. source router IP
+                                        */
+                                        
+                                        for(int i=0;i < ntohs(cpp->nodes); i++)
                                         {
-                                            up->routingEntries[i].destinationRouterIP=cpp->routerIP[i+1];
-                                            up->routingEntries[i].destinationRouterPort=cpp->routerPort[i+1];
-                                            up->routingEntries[i].padding=0;
-                                            up->routingEntries[i].destinationRouterID=cpp->routerID[i+1];
-                                            up->routingEntries[i].metricCost=cpp->metric[i+1];
+                                            localBaseTopologyTable[i].destinationRouterID=cpp->routerID[i];
+                                            localBaseTopologyTable[i].nextHopID=0;
+                                            localBaseTopologyTable[i].metricCost=INF;
+                                            localBaseTopologyTable[i].destinationIP=cpp->routerIP[i];
+                                            localBaseTopologyTable[i].sourceRouterIP=whoAmiIP;
+                                            localBaseTopologyTable[i].ne=false;
+                                            localBaseTopologyTable[i].active=false;
+                                            localBaseTopologyTable[i].uptime=INF;
                                         }
+                                        
+                                        /*3. find number of neighbors populate details for them*/
+                                        printf("Neighbor count for [%u] is: %d\n", ntohs(whoAmiIP),neighborCount);
                                         
                                         
                                     }
@@ -745,7 +904,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     }
                                     else if(cph->controlCode==3)
                                     {
-                                        //UPDATE-UPDATE RT-NO RESPONSE REQUIRED
+                                        //UPDATE-UPDATE RT-NO RESPONSE REQUIRED EXCEPT HEADER
                                         
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
@@ -773,12 +932,14 @@ public: int estalblishRouter(uint16_t controlPort)
                                     }
                                     else if(cph->controlCode==4)
                                     {
-                                        //CRASH-TURN OFF ROUTING OPERATIONS-RESPONSE REQUIRED
+                                        //CRASH-TURN OFF ROUTING OPERATIONS- NO RESPONSE REQUIRED EXCEPT HEADER
                                         printf("control code 0x04 found. Router will crash now\n");
+                                        //generate response before exiting
+                                        exit(0);
                                     }
                                     else if(cph->controlCode==5)
                                     {
-                                        //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED
+                                        //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED EXCEPT HEADER
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. File needs to be sent. Waiting for payload...\n",hex);

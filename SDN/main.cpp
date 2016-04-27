@@ -91,7 +91,7 @@ into it and use it to store locally.
 struct routingTable
 {
     int uptime;
-    
+    bool ne;
     //REQD FIELDS
     uint16_t destinationRouterID;
     uint16_t padding;
@@ -101,12 +101,11 @@ struct routingTable
     uint32_t destinationIP;
     uint32_t sourceRouterIP;
     
-    bool ne;
+    bool doesExist;
     bool active;
-    
 };
 
-//DUMP FOR ALL DATA RCVD FROM THE CONTROLLER
+//DUMP FOR ALL DATA RCVD FROM THE CONTROLLER IN THE PAYLOAD
 struct controlPacketPayload
 {
     uint32_t routerIP[5];
@@ -202,10 +201,58 @@ public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], int nodeCount, uin
     {
         return 0;
     }
+public: int establishRoutingUpdates(uint16_t rp)
+    {
+        /*[PA3]Router will listen for routing updates on this ROUTER PORT (UDP)*/
+        
+        //read router port from INIT control payload
+        
+        
+        routerPort=ntohs(rp);
+        printf("You choose to use %u as the router port\n", routerPort);
+        listenPort=(char*)malloc(sizeof(int)+1);
+        sprintf(listenPort, "%d", routerPort);
+        
+        if ((rv = getaddrinfo(NULL, listenPort, &hints, &servinfo)) != 0)
+        {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+            return 1;
+        }
+        
+        for(p = servinfo; p != NULL; p = p->ai_next)
+        {
+            if ((sockfdUpdates = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+            {
+                perror("listener: socket\n");
+                continue;
+            }
+            if(::bind(sockfdUpdates, p->ai_addr, p->ai_addrlen) < -1)
+            {
+                close(sockfdUpdates);
+                perror("server: bind\n");
+                continue;
+            }
+            else
+            {
+                //printf("Router now listening for updates on router port: %s\n", listenPort);
+            }
+            break;
+        }
+        if (p == NULL)
+        {
+            fprintf(stderr, "listener: failed to bind socket\n");
+            return -1;
+        }
+        freeaddrinfo(servinfo);
+        printf("listener: waiting to recvfrom on [%s] ...\n", listenPort);
+        
+        return 0;
+
+    }
     
 public: int estalblishRouter(uint16_t controlPort)
     {
-        //printf("You choose to use %hu as the router port\n", routerPort);
+        
         printf("You choose to use %hu as the control port\n", controlPort);
         //printf("You choose to use %hu as the data port\n", routerPort);
         
@@ -268,45 +315,6 @@ public: int estalblishRouter(uint16_t controlPort)
         /*Router will listen for controller messages on this CONTROL PORT(TCP). This will be supplied as an argument when executing the application[PA3]*/
         
         
-        /*[PA3]Router will listen for routing updates on this ROUTER PORT (UDP)*/
-        routerPort=9988;
-        
-        listenPort=(char*)malloc(sizeof(int)+1);
-        
-        sprintf(listenPort, "%d", routerPort);
-        
-        if ((rv = getaddrinfo(NULL, listenPort, &hints, &servinfo)) != 0)
-        {
-            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-            return 1;
-        }
-        
-        for(p = servinfo; p != NULL; p = p->ai_next)
-        {
-            if ((sockfdUpdates = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
-            {
-                perror("listener: socket\n");
-                continue;
-            }
-            if(::bind(sockfdUpdates, p->ai_addr, p->ai_addrlen) < -1)
-            {
-                close(sockfdUpdates);
-                perror("server: bind\n");
-                continue;
-            }
-            else
-            {
-                //printf("Router now listening for updates on router port: %s\n", listenPort);
-            }
-            break;
-        }
-        if (p == NULL)
-        {
-            fprintf(stderr, "listener: failed to bind socket\n");
-            return -1;
-        }
-        freeaddrinfo(servinfo);
-        printf("listener: waiting to recvfrom...\n");
         
         //        addr_len = sizeof their_addr;
         //        numbytes=recvfrom(sockfdUpdates, buffer, sizeof(buffer), 0, (sockaddr *)&their_addr, &addr_len);
@@ -565,8 +573,12 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    establishRoutingUpdates(cpp->routerPort[i]);
+                                                    printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
                                             }
+                                            //establish router port for UDP updates
+                                           
                                         }
                                         if(ntohs(cpp->nodes)==2)
                                         {
@@ -607,8 +619,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    establishRoutingUpdates(cpp->routerPort[i]);
+                                                    printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
                                             }
+                                            
                                         }
                                         if(ntohs(cpp->nodes)==3)
                                         {
@@ -666,8 +681,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    establishRoutingUpdates(cpp->routerPort[i]);
+                                                    printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
                                             }
+                                            
                                         }
                                         if(ntohs(cpp->nodes)==4)
                                         {
@@ -749,8 +767,12 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    establishRoutingUpdates(cpp->routerPort[i]);
+                                                    printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
                                             }
+                                            
+                                            
                                         }
                                         if(ntohs(cpp->nodes)==5)
                                         {
@@ -838,6 +860,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    establishRoutingUpdates(cpp->routerPort[i]);
+                                                    printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
                                             }
                                         }
@@ -936,6 +960,10 @@ public: int estalblishRouter(uint16_t controlPort)
                                         localBaseTopologyTable[ntohs(whoAmiID)].uptime=0;
                                         
                                         /*PRINT localBaseTopologyTable for TESTING*/
+                                        
+                                        printf("-------------------------------------------\n");
+                                        printf("PRINTING LBTT\n");
+                                        printf("-------------------------------------------\n");
                                         for(int i=1;i<=ntohs(cpp->nodes);i++)
                                         {
                                             char * src = inet_ntoa(*(struct in_addr*)&whoAmiIP);

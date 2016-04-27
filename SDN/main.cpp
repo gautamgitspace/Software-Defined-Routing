@@ -39,6 +39,14 @@
  * @return 0 EXIT_SUCCESS
  */
 
+
+/*TODO - 27th April
+ 1. Select call for data port
+ 2. Bellman ford function
+ 3. Send update function
+ 4. Display routing table function
+ */
+
 #include <stdio.h>
 #include <iostream>
 #include <inttypes.h>

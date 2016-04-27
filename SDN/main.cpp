@@ -209,6 +209,11 @@ public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], int nodeCount, uin
     {
         return 0;
     }
+//sends periodic updates on router port (UDP)
+public: int transmitRoutingUpdates(int s, int myID, int nodeCount, struct routingTable *lbtt)
+    {
+        return 0;
+    }
 public: int establishRoutingUpdates(uint16_t rp)
     {
         /*[PA3]Router will listen for routing updates on this ROUTER PORT (UDP)*/
@@ -998,6 +1003,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     {
                                         //ROUTING TABLE-RT RESPONSE REQUIRED
                                         printf("control code 0x02 found. Routing Table requested. Will be sent\n");
+                                        /*print ROUTING TABLE HERE FOR TESTING PUPOSES*/
                                     }//cc2 ends
                                     else if(cph->controlCode==3)
                                     {

@@ -205,12 +205,12 @@ public: Router()
     }
 
 // Pseudo code for algo - Pg 373 Ross Kurose Chapter 4
-public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], int nodeCount, uint16_t myID, struct routingTable * lbtt)
+public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], uint16_t nodeCount, uint16_t myID, struct routingTable * lbtt)
     {
         return 0;
     }
 //sends periodic updates on router port (UDP)
-public: int transmitRoutingUpdates(int s, int myID, int nodeCount, struct routingTable *lbtt)
+public: int transmitRoutingUpdates(int s, uint16_t myID, uint16_t nodeCount, struct routingTable *lbtt)
     {
         return 0;
     }

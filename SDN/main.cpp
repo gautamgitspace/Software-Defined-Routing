@@ -207,11 +207,15 @@ public: int establishRoutingUpdates(uint16_t rp)
         
         //read router port from INIT control payload
         
-        
         routerPort=ntohs(rp);
         printf("You choose to use %u as the router port\n", routerPort);
         listenPort=(char*)malloc(sizeof(int)+1);
         sprintf(listenPort, "%d", routerPort);
+        
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_DGRAM;
+        hints.ai_flags = AI_PASSIVE;
+
         
         if ((rv = getaddrinfo(NULL, listenPort, &hints, &servinfo)) != 0)
         {
@@ -221,12 +225,17 @@ public: int establishRoutingUpdates(uint16_t rp)
         
         for(p = servinfo; p != NULL; p = p->ai_next)
         {
-            if ((sockfdUpdates = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+            if ((sockfdUpdates = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)   //SOCKET
             {
                 perror("listener: socket\n");
                 continue;
             }
-            if(::bind(sockfdUpdates, p->ai_addr, p->ai_addrlen) < -1)
+            if(setsockopt(sockfdUpdates, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))==-1)
+            {
+                perror("setsockopt");
+                exit(1);
+            }
+            if(::bind(sockfdUpdates, p->ai_addr, p->ai_addrlen) < -1)   //BIND
             {
                 close(sockfdUpdates);
                 perror("server: bind\n");
@@ -234,7 +243,7 @@ public: int establishRoutingUpdates(uint16_t rp)
             }
             else
             {
-                //printf("Router now listening for updates on router port: %s\n", listenPort);
+                printf("[%s] Bind to Router now. Router now listening for updates\n", listenPort);
             }
             break;
         }
@@ -246,9 +255,16 @@ public: int establishRoutingUpdates(uint16_t rp)
         freeaddrinfo(servinfo);
         printf("listener: waiting to recvfrom on [%s] ...\n", listenPort);
         
-        return 0;
-
+        FD_SET(sockfdUpdates, &masterDescriptor);
+        printf("added sockfdUpdates to masterDescripto\n");
+        if(sockfdUpdates>fdMaxNumber)
+        {
+            fdMaxNumber=sockfdUpdates;
+            printf("fdMaxNumber updated in UDP call control\n");
+        }
+        return 1;
     }
+
     
 public: int estalblishRouter(uint16_t controlPort)
     {
@@ -312,47 +328,11 @@ public: int estalblishRouter(uint16_t controlPort)
         {
             printf("listening for incoming connections on CONTROL PORT (TCP)\n");
         }
-        /*Router will listen for controller messages on this CONTROL PORT(TCP). This will be supplied as an argument when executing the application[PA3]*/
-        
-        
-        
-        //        addr_len = sizeof their_addr;
-        //        numbytes=recvfrom(sockfdUpdates, buffer, sizeof(buffer), 0, (sockaddr *)&their_addr, &addr_len);
-        //        if(numbytes==-1)
-        //        {
-        //            perror("recvfrom");
-        //            exit(1);
-        //        }
-        //
-        //        getpeername(sockfdUpdates, (struct sockaddr *) &clientAddress, &clientLength);
-        //
-        //        if(clientAddress.ss_family == AF_INET)
-        //        {
-        //            struct sockaddr_in *peername = (struct sockaddr_in *) &clientAddress;
-        //            clientPort = ntohs(peername->sin_port);
-        //            inet_ntop(AF_INET, &peername->sin_addr, storeAddress, sizeof (storeAddress));
-        //        }
-        //        else
-        //        {
-        //            struct sockaddr_in6 *peername = (struct sockaddr_in6 *) &clientAddress;
-        //            clientPort = ntohs(peername->sin6_port);
-        //            inet_ntop(AF_INET, &peername->sin6_addr, storeAddress, sizeof (storeAddress));
-        //        }
-        //        printf("Accepting routing updates from %s: %d on socket %d\n\n", storeAddress, clientPort, sockfdUpdates);
-        //        printf("Socket %d is bound to %s\n", sockfdUpdates, storeAddress);
-        //        clientLength = sizeof(clientAddress);
-        //
-        //        printf("listener: packet is %d bytes long\n", numbytes);
-        //        buffer[numbytes] = '\0';
-        //        printf("listener: packet contains \"%s\"\n", buffer);
-        //        close(sockfdUpdates);
-        
-        /*Router will listen for routing updates on this ROUTER PORT (UDP)[PA3]*/
-        
+        /*CONTROL PORT(TCP) CODE ENDS HERE*/
         
         /*SELECT SYSTEM HANDLING*/
         FD_SET(sockfdController, &masterDescriptor);
-        FD_SET(sockfdUpdates, &masterDescriptor);
+        //FD_SET(sockfdUpdates, &masterDescriptor);
         fdMaxNumber=sockfdController;
         struct timeval selectCallTimer;
         int dataSocket;
@@ -390,6 +370,7 @@ public: int estalblishRouter(uint16_t controlPort)
                             }
                             else    //bad accept
                             {
+                                printf("adding newsockfd to masterDescriptor\n");
                                 FD_SET(newsockfd, &masterDescriptor);
                                 if(newsockfd>fdMaxNumber)
                                 {
@@ -607,11 +588,15 @@ public: int estalblishRouter(uint16_t controlPort)
                                             //find ne count
                                             if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
                                             {
+                                                printf("##ne count inc CASE 1\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[0])].ne=true;
                                             }
                                             if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
                                             {
+                                                printf("##ne count inc CASE 2\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[1])].ne=true;
                                             }
                                             //find whoAmiID
                                             for(int i=0; i<ntohs(cpp->nodes);i++)
@@ -664,15 +649,21 @@ public: int estalblishRouter(uint16_t controlPort)
                                             //find ne count
                                             if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
                                             {
+                                                printf("##ne count inc CASE 1\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[0])].ne=true;
                                             }
                                             if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
                                             {
+                                                printf("##ne count inc CASE 2\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[1])].ne=true;
                                             }
                                             if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
                                             {
+                                                printf("##ne count inc CASE 3\n");
                                                 neighborCount++;
+                                                localBaseTopologyTable[ntohs(cpp->routerID[2])].ne=true;
                                             }
                                             
                                             //find whoAmiID
@@ -771,7 +762,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                                     printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
                                             }
-                                            
                                             
                                         }
                                         if(ntohs(cpp->nodes)==5)
@@ -1179,7 +1169,37 @@ public: int estalblishRouter(uint16_t controlPort)
                         //select SET#2
                         else if(FD_ISSET(sockfdUpdates, &tempRead_fds))
                         {
-                            //handle UDP routing updates here using recvfrom() and manipulate them for Bellman-Ford
+                                    addr_len = sizeof their_addr;
+                                    numbytes=recvfrom(sockfdUpdates, buffer, 100, 0, (sockaddr *)&their_addr, &addr_len);
+                                    if(numbytes==-1)
+                                    {
+                                        perror("recvfrom");
+                                        exit(1);
+                                    }
+                            
+                                    getpeername(sockfdUpdates, (struct sockaddr *) &clientAddress, &clientLength);
+                            
+                                    if(clientAddress.ss_family == AF_INET)
+                                    {
+                                        struct sockaddr_in *peername = (struct sockaddr_in *) &clientAddress;
+                                        clientPort = ntohs(peername->sin_port);
+                                        inet_ntop(AF_INET, &peername->sin_addr, storeAddress, sizeof (storeAddress));
+                                    }
+                                    else
+                                    {
+                                        struct sockaddr_in6 *peername = (struct sockaddr_in6 *) &clientAddress;
+                                        clientPort = ntohs(peername->sin6_port);
+                                        inet_ntop(AF_INET, &peername->sin6_addr, storeAddress, sizeof (storeAddress));
+                                    }
+                                    printf("Accepting routing updates from %s: %d on socket %d\n\n", storeAddress, clientPort, sockfdUpdates);
+                                    printf("Socket %d is bound to %s\n", sockfdUpdates, storeAddress);
+                                    clientLength = sizeof(clientAddress);
+                            
+                                    printf("listener: packet is %d bytes long\n", numbytes);
+                                    buffer[numbytes] = '\0';
+                                    printf("listener: packet contains \"%s\"\n", buffer);
+                                    //close(sockfdUpdates);
+
                         }
                         //select SET#3
                         else

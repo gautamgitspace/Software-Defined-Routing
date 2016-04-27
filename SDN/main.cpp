@@ -357,11 +357,13 @@ public: int estalblishRouter(uint16_t controlPort)
             }
             else if(select(fdMaxNumber+1, &tempRead_fds, NULL, NULL, &selectCallTimer)==0)
             {
-                //select with no timely response
+                /*select with no timely response - HANDLE MISSED UDP UPDATES HERE
+                 THIS BLOCK WILL BE FIRED EVERY UNIT TIME AND A TIMER VARIABLE WILL
+                 BE USED TO KEEP TRACK*/
             }
             else
             {
-                //good select with timely response
+                //good select with timely response either from controller, UDP updates or the DATA PORT
                 
                 for(int i=0;i<=fdMaxNumber+1;i++)
                 {
@@ -1090,6 +1092,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                     else if(cph->controlCode==5)
                                     {
                                         //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED EXCEPT HEADER
+                                        /*1. Read from the file name specified by the controller. That file will reside in the same directory.
+                                         2. Packetize the file in the specified format and send it to the data port of the next hop router (found after table lookup)
+                                         3. Destination router will read this and reconstruct it and write to disk*/
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. File needs to be sent. Waiting for payload...\n",hex);

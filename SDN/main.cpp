@@ -91,7 +91,7 @@ routers via UDP.
 };
 
 
-/*For routing table at each router. A PART of it will be sent to the
+/*For routing table at each router also known as LBTT. A PART of it will be sent to the
 CONTROLLER. Make an array of struct whenever the info is to be loaded 
 into it and use it to store locally.
  
@@ -105,6 +105,7 @@ struct routingTable
     uint16_t padding;
     uint16_t nextHopID;
     uint16_t metricCost;
+    uint16_t routerPort; //added later. add its functionality in the lower part of the code
     //EXTRA FIELDS
     uint32_t destinationIP;
     uint32_t sourceRouterIP;
@@ -137,7 +138,7 @@ struct controlResponsePayload
     uint8_t TTL;
 };
 
-//CONTROL RESPONSE FOR ROUTING TABLE (0x02)
+//CONTROL RESPONSE FOR ROUTING TABLE (0x02) - NOT USED AS FAR
 struct topologyTable
 {
     uint16_t routerID;
@@ -177,15 +178,16 @@ class Router
     int sockfdController, sockfdUpdates, fdMaxNumber, newsockfd, readBytes;
     uint16_t routerPort;
     struct addrinfo hints, *servinfo, *p;
-    int rv, returnedInfo;
+    int rv, returnedInfo, nodeCount;
     int numbytes, clientPort;
     struct sockaddr_storage their_addr, clientAddress;
     struct sockaddr_in6 *peername6;
     struct sockaddr_in *peername;
-    char buffer[100];
+    char buffer[100];   //check this - agautam2
     unsigned char *controlBuffer;
     unsigned char *controlResponseBuffer;
     unsigned char *controlResponsePayloadBuffer;
+    unsigned char *updateBuffer;
     socklen_t addr_len, clientLength;
     char s[INET6_ADDRSTRLEN];
     char storeAddress[INET6_ADDRSTRLEN];
@@ -195,6 +197,7 @@ class Router
     fd_set tempRead_fds;
     int yes, neighborCount;
     uint16_t whoAmiID;
+    uint16_t whoAmiPort;
     uint32_t whoAmiIP;
     
     /*All class-related variables go here*/
@@ -207,11 +210,75 @@ public: Router()
 // Pseudo code for algo - Pg 373 Ross Kurose Chapter 4
 public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], uint16_t nodeCount, uint16_t myID, struct routingTable * lbtt)
     {
+        for(int i=1; i<=nodeCount ; i++)
+        {
+            if(i==myID)
+            {
+                continue;
+            }
+            int min=INF;
+            int tempNextHopID=-1;
+            
+            for(int j=1; j<=nodeCount; j++)
+            {
+                if (lbtt[j].ne==true && lbtt[j].active==true && j!=myID)
+                {
+                    if(min > (dv[myID][j]+dv[j][i]))
+                    {
+                        min=dv[myID][j]+dv[j][i];
+                        tempNextHopID=j;
+                    }
+                }
+            }
+            
+            dv[myID][i]=min;
+            lbtt[i].metricCost=min;
+            lbtt[i].nextHopID=tempNextHopID;
+            
+            if(dv[myID][i]==65535)
+            {
+                lbtt[i].nextHopID=-1;
+            }
+        }
+
         return 0;
     }
 //sends periodic updates on router port (UDP)
-public: int transmitRoutingUpdates(int s, uint16_t myID, uint16_t nodeCount, struct routingTable *lbtt)
+public: int transmitRoutingUpdates(struct routingTable *lbtt, uint16_t myPort, uint32_t myIP, uint16_t nodeCount, int s)
     {
+        ssize_t bytes_sent,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(nodeCount*sizeof(struct routingEntry));
+        
+        //updateBuffer = new unsigned char [1024];
+        struct updatePacket *updateMessage=(struct updatePacket*)malloc(sizeof(struct updatePacket));
+        
+        updateMessage->numberOfUpdateFields=nodeCount;  //2 bytes
+        updateMessage->sourceRouterPort=myPort;   //2 bytes
+        updateMessage->sourceRouterIP=myIP; //4 bytes
+        //ROUTING ENTRIES BEGIN NOW
+        for(int i=1; i<=nodeCount; i++)
+        {
+            updateMessage->routingEntries[i-1].destinationRouterIP = lbtt[i].destinationIP; //4 bytes
+            updateMessage->routingEntries[i-1].destinationRouterPort = lbtt[i].routerPort; //2 bytes
+            updateMessage->routingEntries[i-1].padding=0; //2 bytes
+            updateMessage->routingEntries[i-1].destinationRouterID = lbtt[i].destinationRouterID;//2 bytes
+            updateMessage->routingEntries[i-1].metricCost = lbtt[i].metricCost;// 2bytes
+        }
+        
+        for(int i=1;i<=nodeCount;i++)
+        {
+            if(lbtt[i].ne==true && lbtt[i].active==true)
+            {
+                struct sockaddr_in dest;
+                dest.sin_family=AF_INET;
+                dest.sin_port=ntohs(lbtt[i].routerPort);
+                dest.sin_addr= *(struct in_addr *)&lbtt[i].destinationIP;
+                //sendto(<#int#>, <#const void *#>, <#size_t#>, <#int#>, <#const struct sockaddr *#>, <#socklen_t#>)
+                //recvfrom(<#int#>, <#void *#>, <#size_t#>, <#int#>, <#struct sockaddr *#>, <#socklen_t *#>)
+                bytes_sent=sendto(s, (struct updatePacket*)updateMessage, size, 0,(struct sockaddr*)&dest, sizeof dest);
+            }
+        }
+
+        
         return 0;
     }
 public: int establishRoutingUpdates(uint16_t rp)
@@ -481,7 +548,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer = new unsigned char [1024];
                                         controlResponsePayloadBuffer = new unsigned char [1024];
                                         struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
-                                        struct controlResponsePayload *crp = (struct controlResponsePayload *) malloc(sizeof(struct controlResponsePayload));
+                                        //struct controlResponsePayload *crp = (struct controlResponsePayload *) malloc(sizeof(struct controlResponsePayload));
                                         
                                         crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
                                         crh->controlCode=0;
@@ -535,6 +602,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->nodes, controlBuffer, 2);
                                         controlBuffer+=2;
                                         printf("No. of nodes: %u\n",ntohs(cpp->nodes));
+                                        nodeCount = ntohs(cpp->nodes);
+                                        struct routingTable lbtt [nodeCount+1];
                                         memcpy(&cpp->updateInterval, controlBuffer, 2);
                                         controlBuffer-=10;
                                         printf("Update Interval: %u\n",ntohs(cpp->updateInterval));
@@ -569,6 +638,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    whoAmiPort=cpp->routerPort[i];
                                                     establishRoutingUpdates(cpp->routerPort[i]);
                                                     printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
@@ -619,6 +689,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    whoAmiPort=cpp->routerPort[i];
                                                     establishRoutingUpdates(cpp->routerPort[i]);
                                                     printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
@@ -687,6 +758,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    whoAmiPort=cpp->routerPort[i];
                                                     establishRoutingUpdates(cpp->routerPort[i]);
                                                     printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
@@ -773,6 +845,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    whoAmiPort=cpp->routerPort[i];
                                                     establishRoutingUpdates(cpp->routerPort[i]);
                                                     printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
@@ -865,6 +938,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                                 if(ntohs(cpp->metric[i])==0)
                                                 {
                                                     whoAmiID=cpp->routerID[i];
+                                                    whoAmiPort=cpp->routerPort[i];
                                                     establishRoutingUpdates(cpp->routerPort[i]);
                                                     printf("Sending router port [%u] info to router\n",ntohs(cpp->routerPort[i]));
                                                 }
@@ -912,12 +986,13 @@ public: int estalblishRouter(uint16_t controlPort)
                                             printf("failed to send control response header\n");
                                         }
                                         
-                                        /*PREPARE LOCAL RT*/
+                                        /*PREPARE LOCAL RT, known as LBTT from here onwards*/
                                         
                                         /*1. find who am i? - ID to which the controller msg is directed - done in loops*/
                                         printf("whoAmiID is - [%u]\n", ntohs(whoAmiID));
                                         char * str = inet_ntoa(*(struct in_addr *)&whoAmiIP);
                                         printf("whoAmiIP is - [%s]\n", str);
+                                        printf("whoAmiPort is - [%u]", ntohs(whoAmiPort));
                                          
                                         /*
                                          2. find total number of nodes, run loop and POPULATE whatever was read from control message:
@@ -931,10 +1006,13 @@ public: int estalblishRouter(uint16_t controlPort)
                                         for(int i=1; i<=ntohs(cpp->nodes); i++)
                                         {
                                             //ne flag set to false in the starting
+                                            //LBTT contains data from 1 onwards
+                                            //cpp-> contains data from 0 onwards
                                             localBaseTopologyTable[i].destinationRouterID=cpp->routerID[i-1];
-                                            localBaseTopologyTable[i].nextHopID=0;
+                                            localBaseTopologyTable[i].nextHopID=-1; //for now let it be -1
                                             localBaseTopologyTable[i].metricCost=INF;
                                             localBaseTopologyTable[i].destinationIP=cpp->routerIP[i-1];
+                                            localBaseTopologyTable[i].routerPort=cpp->routerPort[i-1];
                                             localBaseTopologyTable[i].sourceRouterIP=whoAmiIP;
                                             localBaseTopologyTable[i].active=false;
                                             localBaseTopologyTable[i].uptime=INF;
@@ -966,20 +1044,28 @@ public: int estalblishRouter(uint16_t controlPort)
                                         
                                         /*PRINT localBaseTopologyTable for TESTING*/
                                         
-                                        printf("-------------------------------------------\n");
-                                        printf("PRINTING LBTT\n");
-                                        printf("-------------------------------------------\n");
+                                        printf("-------------------------------------------------------------------\n");
+                                        printf("PRINTING LBTT A/I-ACTIVE[1] INACTIVE[0]\n <INITIAL MATRIX TABLE>");
+                                        printf("-------------------------------------------------------------------\n");
+                                        printf("\n");
+                                        
+                                        
+                                        printf("%-20s%-15s%-15s%-15s%-15s%-15s%-15s\n", "Dest IP", "Dest RID", "Router Port", "Next Hop ID","Metric", "A/I", "TSU");
+                                        printf("\n");
                                         for(int i=1;i<=ntohs(cpp->nodes);i++)
                                         {
-                                            char * src = inet_ntoa(*(struct in_addr*)&whoAmiIP);
-                                            printf("source Router IP: %s\n", src);
-                                            printf("Destination Router ID: %u\n", ntohs(localBaseTopologyTable[i].destinationRouterID));
-                                            printf("next Hop ID: %u\n", ntohs(localBaseTopologyTable[i].nextHopID));
-                                            printf("metric Cost: %u\n", ntohs(localBaseTopologyTable[i].metricCost));
+                                           
                                             char * dest= inet_ntoa(*(struct in_addr *)&localBaseTopologyTable[i].destinationIP);
-                                            printf("Destination Router IP: %s\n", dest);
-                                            printf("Active[1] Inactive[0]: %d\n", localBaseTopologyTable[i].active);
-                                            printf("Time since router update: %u\n",localBaseTopologyTable[i].uptime);
+                                            printf("%-20s%-15u%-15u%-15u%-15u%-15d%-15u\n", dest, ntohs(localBaseTopologyTable[i].destinationRouterID), ntohs(localBaseTopologyTable[i].routerPort), ntohs(localBaseTopologyTable[i].nextHopID),ntohs(localBaseTopologyTable[i].metricCost), localBaseTopologyTable[i].active, localBaseTopologyTable[i].uptime);
+                                            
+                                            //printf("Destination Router ID: %u\n", ntohs(localBaseTopologyTable[i].destinationRouterID));
+                                            //printf("next Hop ID: %u\n", ntohs(localBaseTopologyTable[i].nextHopID));
+                                            //printf("metric Cost: %u\n", ntohs(localBaseTopologyTable[i].metricCost));
+                                            
+                                            //printf("Destination Router IP: %s\n", dest);
+                                            //printf("Router Port: [%u]\n", ntohs(localBaseTopologyTable[i].routerPort));
+                                            //printf("Active[1] Inactive[0]: %d\n", localBaseTopologyTable[i].active);
+                                            //printf("Time since router update: %u\n",localBaseTopologyTable[i].uptime);
                                             
                                         }
                                         /*6. initialiase DV */
@@ -1100,7 +1186,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED EXCEPT HEADER
                                         /*1. Read from the file name specified by the controller. That file will reside in the same directory.
                                          2. Packetize the file in the specified format and send it to the data port of the next hop router (found after table lookup)
-                                         3. Destination router will read this and reconstruct it and write to disk*/
+                                         3. Destination router will read this and reconstruct it and write to disk
+                                         4. Compute MD5 to check for proper reassembly at destination*/
                                         char hex[5];
                                         sprintf(hex, "%x", cph->controlCode);
                                         printf("control code %s found. File needs to be sent. Waiting for payload...\n",hex);
@@ -1188,14 +1275,60 @@ public: int estalblishRouter(uint16_t controlPort)
                         //select SET#2
                         else if(FD_ISSET(sockfdUpdates, &tempRead_fds))
                         {
-                                    addr_len = sizeof their_addr;
-                                    numbytes=recvfrom(sockfdUpdates, buffer, 100, 0, (sockaddr *)&their_addr, &addr_len);
-                                    if(numbytes==-1)
-                                    {
-                                        perror("recvfrom");
-                                        exit(1);
-                                    }
+                                //------------
                             
+                            ssize_t bytes_received,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(nodeCount *sizeof(struct routingEntry));
+                            struct updatePacket *updateMessage=(updatePacket*)malloc(size);
+                            
+                            struct sockaddr_in *dest;
+                            socklen_t destlen;
+                            
+                            bytes_received=recvfrom(sockfdUpdates, (struct updatePacket*)updateMessage, size, 0, NULL, NULL);
+                            
+                            //START HERE - AG949T
+                            
+                            if(bytes_received==size)
+                            {
+                                int remote_server_id;
+                                for(int i=1; i<=ntohs(updateMessage->numberOfUpdateFields); i++)
+                                {
+                                    //identify the advertiser based on cost he advertises to himself (if 0 he is the remote ID)
+                                    if(ntohs(updateMessage->routingEntries[i-1].metricCost==0))
+                                    {
+                                        remote_server_id=ntohs(updateMessage->routingEntries[i-1].destinationRouterID);
+                                    }
+                                }
+                                if (local_table[remote_server_id].isEnabled==true)
+                                {
+                                    packets_rec++;
+                                    //reset timeout
+                                    if (local_table[remote_server_id].isPresent==false || local_table[remote_server_id].time_since_update>(timeout*3))
+                                    {
+                                        local_table[remote_server_id].isPresent=true;
+                                        distance_vector[my_server_id][remote_server_id]=myTopology[remote_server_id];
+                                    }
+                                    cse4589_print_and_log("RECEIVED A MESSAGE FROM SERVER %d\n", remote_server_id);
+                                    for(int i=1; i<=ntohs(received_packet->update_fields); i++)
+                                    {
+                                        cse4589_print_and_log("%-15d%-15d\n", ntohs(received_packet->entries[i-1].server_id), ntohs(received_packet->entries[i-1].cost));
+                                    }
+                                    for(int i=1; i<=ntohs(received_packet->update_fields); i++)
+                                    {
+                                        distance_vector[remote_server_id][i]=ntohs(received_packet->entries[i-1].cost);
+                                    }
+                                    local_table[remote_server_id].time_since_update=0;
+                                    bellman_ford(my_server_id, number_servers, local_table, distance_vector);
+                                }
+                            }
+                            memset((struct packet*)received_packet,'\0',size);
+                        
+
+                            
+                        
+                                //-------------
+                            
+                            
+                                    //code to get peer info:
                                     getpeername(sockfdUpdates, (struct sockaddr *) &clientAddress, &clientLength);
                             
                                     if(clientAddress.ss_family == AF_INET)
@@ -1211,13 +1344,14 @@ public: int estalblishRouter(uint16_t controlPort)
                                         inet_ntop(AF_INET, &peername->sin6_addr, storeAddress, sizeof (storeAddress));
                                     }
                                     printf("Accepting routing updates from %s: %d on socket %d\n\n", storeAddress, clientPort, sockfdUpdates);
-                                    printf("Socket %d is bound to %s\n", sockfdUpdates, storeAddress);
-                                    clientLength = sizeof(clientAddress);
                             
-                                    printf("listener: packet is %d bytes long\n", numbytes);
-                                    buffer[numbytes] = '\0';
-                                    printf("listener: packet contains \"%s\"\n", buffer);
-                                    //close(sockfdUpdates);
+//                                    printf("Socket %d is bound to %s\n", sockfdUpdates, storeAddress);
+//                                    clientLength = sizeof(clientAddress);
+//                            
+//                                    printf("listener: packet is %d bytes long\n", numbytes);
+//                                    buffer[numbytes] = '\0';
+//                                    printf("listener: packet contains \"%s\"\n", buffer);
+//                                    //close(sockfdUpdates);
 
                         }
                         //select SET#3

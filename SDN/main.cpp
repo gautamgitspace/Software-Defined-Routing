@@ -475,12 +475,12 @@ public: int estalblishRouter(uint16_t controlPort)
                     //printf("PERIODIC UPDATE SENT from [%u]\n", ntohs(whoAmiID));
                 }
                 printf("#before for\n");
-                for(int i=1; i<=ntohs(nodeCount); i++)												// check if any neighbor missed 3 consecutive updates
-                {																					//cout<<"Server ID "<<local_table[i].server_id<<endl;
+                for(int i=1; i<=ntohs(nodeCount); i++)
+                {
                     printf("#inside for\n");
                     if (localBaseTopologyTable[i].ne==true && localBaseTopologyTable[i].active==true && localBaseTopologyTable[i].doesExist==true)
                     {
-                        localBaseTopologyTable[i].uptime++;											//cout<<"Neighbor ID "<<local_table[i].server_id<<" Time Since Last Update "<<local_table[i].time_since_update<<endl;
+                        localBaseTopologyTable[i].uptime++;							
                         
                         printf("time since update: %d\n", localBaseTopologyTable[i].uptime);
                         if(localBaseTopologyTable[i].uptime==(ntohs(updateInterval)*3))

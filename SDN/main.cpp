@@ -321,6 +321,7 @@ public: int establishRoutingUpdates(uint16_t rp)
         listenPort=(char*)malloc(sizeof(int)+1);
         sprintf(listenPort, "%d", routerPort);
         
+        printf("setting families\n");
         hints.ai_family = AF_INET;
         hints.ai_socktype = SOCK_DGRAM;
         hints.ai_flags = AI_PASSIVE;
@@ -331,7 +332,7 @@ public: int establishRoutingUpdates(uint16_t rp)
             fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
             return 1;
         }
-        
+        printf("building socket\n");
         for(p = servinfo; p != NULL; p = p->ai_next)
         {
             if ((sockfdUpdates = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)   //SOCKET
@@ -357,7 +358,9 @@ public: int establishRoutingUpdates(uint16_t rp)
             fprintf(stderr, "listener: failed to bind socket\n");
             return -1;
         }
+        printf("all done\n");
         freeaddrinfo(servinfo);
+        printf("freeing servinfo\n");
         printf("listener: waiting to recvfrom on [%s] ...\n", listenPort);
         
         FD_SET(sockfdUpdates, &masterDescriptor);
@@ -463,8 +466,6 @@ public: int estalblishRouter(uint16_t controlPort)
                  THIS BLOCK WILL BE FIRED EVERY UNIT TIME AND A TIMER VARIABLE WILL
                  BE USED TO KEEP TRACK*/
                 
-                printf("Entered this block\n");
-                
                 stopwatch++;
                 printf("timer value: %d\n",stopwatch);
                 if(stopwatch==ntohs(updateInterval))
@@ -474,13 +475,12 @@ public: int estalblishRouter(uint16_t controlPort)
                     stopwatch=0;
                     //printf("PERIODIC UPDATE SENT from [%u]\n", ntohs(whoAmiID));
                 }
-                printf("#before for\n");
+                
                 for(int i=1; i<=ntohs(nodeCount); i++)
                 {
-                    printf("#inside for\n");
                     if (localBaseTopologyTable[i].ne==true && localBaseTopologyTable[i].active==true && localBaseTopologyTable[i].doesExist==true)
                     {
-                        localBaseTopologyTable[i].uptime++;							
+                        localBaseTopologyTable[i].uptime++;
                         
                         printf("time since update: %d\n", localBaseTopologyTable[i].uptime);
                         if(localBaseTopologyTable[i].uptime==(ntohs(updateInterval)*3))
@@ -572,7 +572,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                 if (localBaseTopologyTable[remote_server_id].active==true)
                                 {
                                     
-                                    //reset timeout
                                     if (localBaseTopologyTable[remote_server_id].doesExist==false || localBaseTopologyTable[remote_server_id].uptime>(ntohs(updateInterval)*3))
                                     {
                                         localBaseTopologyTable[remote_server_id].doesExist=true;
@@ -626,7 +625,8 @@ public: int estalblishRouter(uint16_t controlPort)
                             
                             printf("####clearing controlBuffer####\n");
                             //controlBuffer = (unsigned char *)(malloc(1024));
-                            bzero(controlBuffer, sizeof(controlBuffer));
+                            //bzero(controlBuffer, sizeof(controlBuffer));
+                            memset(&controlBuffer[0], 0, 1024);
                             printf("size of receive buffer is: %lu\n", sizeof(controlBuffer));
                             
                             //READ DATA FROM CONTROLLER
@@ -689,7 +689,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("control code %s found. Academic Integrity Response will be generated\n", hex);
                                     
                                     controlResponseBuffer = new unsigned char [1024];
-                                    controlResponsePayloadBuffer = new unsigned char [1024];
+                                    memset(&controlResponseBuffer[0], 0, 1024);
+                                    //controlResponsePayloadBuffer = new unsigned char [1024];
                                     struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                     //struct controlResponsePayload *crp = (struct controlResponsePayload *) malloc(sizeof(struct controlResponsePayload));
                                     
@@ -701,23 +702,28 @@ public: int estalblishRouter(uint16_t controlPort)
                                     strcpy(dataString, "I, agautam2, have read and understood the course academic integrity policy.\0");
                                     crh->payloadLength=sizeof("I, agautam2, have read and understood the course academic integrity policy.")-1;
                                     printf("done writing\n");
-                                    fflush(stdout);
+                                    //fflush(stdout);
                                     
                                     //call to pack using args as: 32(L), 8(C), 8(C) and 16 (H) followed by payload
                                     pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength);
+                                    printf("packed now adding payload\n");
                                     controlResponseBuffer += 8;
-                                    memcpy(controlResponseBuffer, dataString, 75);//to make it work
+                                    //printf("shifting buffer\n");
+                                    memcpy(controlResponseBuffer, dataString, 75);
+                                    //printf("added payload\n");
                                     controlResponseBuffer=controlResponseBuffer-8;
+                                    //printf("shifting buffer back\n");
                                     
-                                    
-                                    /*To test from sending side:*/
-                                    FILE *fp;
-                                    fp = fopen("file1.txt", "w");
-                                    fwrite(controlResponseBuffer, 83, 1, fp); //(payload (75)+ header(8)
-                                    fclose(fp);
+//                                    /*To test from sending side:*/
+//                                    FILE *fp;
+//                                    fp = fopen("file1.txt", "w");
+//                                    fwrite(controlResponseBuffer, 83, 1, fp); //(payload (75)+ header(8)
+//                                    fclose(fp);
                                     
                                     //SEND
+                                    printf("trying to send\n");
                                     int ableToSend1 = send(newsockfd, controlResponseBuffer,83, 0);
+                                    printf("sent\n");
                                     
                                     if(ableToSend1<0)
                                     {
@@ -772,7 +778,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->metric[0], controlBuffer, 2);
                                         controlBuffer+=2;
                                         memcpy(&cpp->routerIP[0], controlBuffer, 4);
-                                        controlBuffer-=22;
+                                        controlBuffer-=20;
                                         //find whoAmiID
                                         for(int i=0; i<ntohs(cpp->nodes);i++)
                                         {
@@ -810,7 +816,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->metric[1], controlBuffer, 2);
                                         controlBuffer+=2;
                                         memcpy(&cpp->routerIP[1], controlBuffer, 4);
-                                        controlBuffer-=34;
+                                        controlBuffer-=32;
                                         //find ne count
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
                                         {
@@ -871,7 +877,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->metric[2], controlBuffer, 2);
                                         controlBuffer+=2;
                                         memcpy(&cpp->routerIP[2], controlBuffer, 4);
-                                        controlBuffer-=46;
+                                        controlBuffer-=44;
                                         
                                         //find ne count
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
@@ -951,7 +957,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->metric[3], controlBuffer, 2);
                                         controlBuffer+=2;
                                         memcpy(&cpp->routerIP[3], controlBuffer, 4);
-                                        controlBuffer-=58;
+                                        controlBuffer-=56;
                                         
                                         //find ne count
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
@@ -1049,7 +1055,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         memcpy(&cpp->metric[4], controlBuffer, 2);
                                         controlBuffer+=2;
                                         memcpy(&cpp->routerIP[4], controlBuffer, 4);
-                                        controlBuffer-=70;
+                                        controlBuffer-=68;
                                         
                                         //find ne count
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
@@ -1110,13 +1116,13 @@ public: int estalblishRouter(uint16_t controlPort)
                                     struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                     printf("trying to pack\n");
                                     crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
-                                    printf("done 1\n");
+                                    //printf("done 1\n");
                                     crh->controlCode=1;
-                                    printf("done 2\n");
+                                    //printf("done 2\n");
                                     crh->responseCode=0;
-                                    printf("done 3\n");
+                                    //printf("done 3\n");
                                     crh->payloadLength=0;
-                                    printf("done 4\n");
+                                    //printf("done 4\n");
                                     //send control response header
                                     pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
                                     printf("pack successful\n");
@@ -1199,15 +1205,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         
                                         char * dest= inet_ntoa(*(struct in_addr *)&localBaseTopologyTable[i].destinationIP);
                                         printf("%-20s%-15u%-15u%-15u%-15u%-15d%-15u\n", dest, ntohs(localBaseTopologyTable[i].destinationRouterID), ntohs(localBaseTopologyTable[i].routerPort), ntohs(localBaseTopologyTable[i].nextHopID),ntohs(localBaseTopologyTable[i].metricCost), localBaseTopologyTable[i].active, localBaseTopologyTable[i].uptime);
-                                        
-                                        //printf("Destination Router ID: %u\n", ntohs(localBaseTopologyTable[i].destinationRouterID));
-                                        //printf("next Hop ID: %u\n", ntohs(localBaseTopologyTable[i].nextHopID));
-                                        //printf("metric Cost: %u\n", ntohs(localBaseTopologyTable[i].metricCost));
-                                        
-                                        //printf("Destination Router IP: %s\n", dest);
-                                        //printf("Router Port: [%u]\n", ntohs(localBaseTopologyTable[i].routerPort));
-                                        //printf("Active[1] Inactive[0]: %d\n", localBaseTopologyTable[i].active);
-                                        //printf("Time since router update: %u\n",localBaseTopologyTable[i].uptime);
+
                                         
                                     }
                                     /*6. initialiase DV */
@@ -1239,9 +1237,231 @@ public: int estalblishRouter(uint16_t controlPort)
                                     {
                                         printf("%-15d%-15d%-15d\n", ntohs(localBaseTopologyTable[i].destinationRouterID),(localBaseTopologyTable[i].nextHopID),(localBaseTopologyTable[i].metricCost));
                                     }
+                                    struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
+                                    controlResponseBuffer = new unsigned char [1024];
+                                    memset(&controlResponseBuffer[0], 0, 1024);
+                                    crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
+                                    crh->controlCode=3;
+                                    crh->responseCode=0;
+                                    printf("setting payload length to %u\n", 8*ntohs(nodeCount));
+                                    crh->payloadLength=8*ntohs(nodeCount);
+                                    printf("trying to pack header for CC=2\n");
+                                    pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode,(uint16_t)crh->payloadLength);
+                                    printf("packed Header\n");
+                                    printf("shifting buffer\n");
                                     
+                                    controlResponseBuffer+=8;
                                     
-                                }//cc2 ends
+                                    if(ntohs(nodeCount)==1)
+                                    {
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        
+                                        //shift back
+                                        controlResponseBuffer-=14;
+                                        printf("trying to send\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,(8+(8*ntohs(nodeCount))), 0);
+                                        printf("sent\n");
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send response for CC=2\n");
+                                        }
+                                        
+                                    }
+                                    
+                                    if(ntohs(nodeCount)==2)
+                                    {
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        controlResponseBuffer+=2;
+                                        
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].metricCost, 2);
+                                        
+                                        //shift back
+                                        controlResponseBuffer-=22;
+                                        printf("trying to send\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,(8+(8*ntohs(nodeCount))), 0);
+                                        printf("sent\n");
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send response for CC=2\n");
+                                        }
+                                        
+                                    }
+                                    
+                                    if(ntohs(nodeCount)==3)
+                                    {
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        controlResponseBuffer+=2;
+                                        
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].metricCost, 2);
+                                        controlResponseBuffer+=2;
+                                        
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].metricCost, 2);
+                                        
+                                        //shift back
+                                        controlResponseBuffer-=30;
+                                        printf("trying to send\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,(8+(8*ntohs(nodeCount))), 0);
+                                        printf("sent\n");
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send response for CC=2\n");
+                                        }
+                                        
+                                    }
+                                    
+                                    if(ntohs(nodeCount)==4)
+                                    {
+                                        printf("trying to pack payload for %d nodes \n", ntohs(nodeCount));
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[1].destinationRouterID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[1].padding, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                    controlResponseBuffer+=2;
+                                    
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[2].padding, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[2].metricCost, 2);
+                                    controlResponseBuffer+=2;
+                                    
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[3].destinationRouterID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[3].padding, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[3].nextHopID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[3].metricCost, 2);
+                                    controlResponseBuffer+=2;
+                                    
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[4].destinationRouterID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[4].padding, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[4].nextHopID, 2);
+                                    controlResponseBuffer+=2;
+                                    memcpy(controlResponseBuffer, &localBaseTopologyTable[4].metricCost, 2);
+                                    
+                                    //shift back
+                                    controlResponseBuffer-=38;
+                                    
+                                        printf("trying to send\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,(8+(8*ntohs(nodeCount))), 0);
+                                        printf("sent\n");
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send response for CC=2\n");
+                                        }
+                                    }
+                                    
+                                    if(ntohs(nodeCount)==5)
+                                    {
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        controlResponseBuffer+=2;
+                                        
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].metricCost, 2);
+                                        controlResponseBuffer+=2;
+                                        
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].metricCost, 2);
+                                        controlResponseBuffer+=2;
+                                        
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].metricCost, 2);
+                                        controlResponseBuffer+=2;
+                                        
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].destinationRouterID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].padding, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].nextHopID, 2);
+                                        controlResponseBuffer+=2;
+                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].metricCost, 2);
+                                        
+                                        //shift back
+                                        controlResponseBuffer-=46;
+                                        printf("trying to send\n");
+                                        int ableToSend1 = send(newsockfd, controlResponseBuffer,(8+(8*ntohs(nodeCount))), 0);
+                                        printf("sent\n");
+                                        
+                                        if(ableToSend1<0)
+                                        {
+                                            printf("failed to send response for CC=2\n");
+                                        }
+                                        
+                                    }
+                                    
+                                    printf("cc2 ends\n");
+                        
+                                    
+                                    }//cc2 ends
                                 else if(cph->controlCode==3)
                                 {
                                     //UPDATE-UPDATE RT-NO RESPONSE REQUIRED EXCEPT HEADER
@@ -1352,13 +1572,13 @@ public: int estalblishRouter(uint16_t controlPort)
                                     struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                     printf("trying to pack\n");
                                     crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
-                                    printf("done 1\n");
+                                    //printf("done 1\n");
                                     crh->controlCode=4;
-                                    printf("done 2\n");
+                                    //printf("done 2\n");
                                     crh->responseCode=0;
-                                    printf("done 3\n");
+                                    //printf("done 3\n");
                                     crh->payloadLength=0;
-                                    printf("done 4\n");
+                                    //printf("done 4\n");
                                     pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
                                     printf("pack successful\n");
                                     int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
@@ -1381,8 +1601,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                     sprintf(hex, "%x", cph->controlCode);
                                     printf("control code %s found. File needs to be sent. Waiting for payload...\n",hex);
                                     struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
-                                    controlBuffer+=8;
                                     
+                                    controlBuffer+=8;
                                     memcpy(&cpp->routerIP, controlBuffer, 4);
                                     controlBuffer+=4;
                                     memcpy(&cpp->TTL, controlBuffer, 1);
@@ -1392,7 +1612,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     memcpy(&cpp->sequenceNumber, controlBuffer, 2);
                                     controlBuffer+=2;
                                     memcpy(&cpp->fileName, controlBuffer, (cph->payloadLength-8));      //make it equal to payload size - agautam2
-                                    controlBuffer-=8;
+                                    controlBuffer-=16;
                                     
                                     printf("--------PAYLOAD CONTAINS--------\n");
                                     char * str1= inet_ntoa(*(struct in_addr *)&cpp->routerIP[0]);
@@ -1407,13 +1627,13 @@ public: int estalblishRouter(uint16_t controlPort)
                                     struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                     printf("trying to pack\n");
                                     crh->controllerIP=static_cast<uint32_t>(peername->sin_addr.s_addr);
-                                    printf("done 1\n");
+                                    //printf("done 1\n");
                                     crh->controlCode=5;
-                                    printf("done 2\n");
+                                    //printf("done 2\n");
                                     crh->responseCode=0;
-                                    printf("done 3\n");
+                                    //printf("done 3\n");
                                     crh->payloadLength=0;
-                                    printf("done 4\n");
+                                    //printf("done 4\n");
                                     pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
                                     printf("pack successful\n");
                                     int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);

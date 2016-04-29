@@ -177,7 +177,7 @@ class Router
     /*All class-related variables go here*/
     
     char *listenPort;
-    int sockfdController, sockfdUpdates, sockfdData, fdMaxNumber, newsockfd, readBytes;
+    int iSocket, sockfdController, sockfdUpdates, sockfdData, fdMaxNumber, newsockfd, readBytes;
     uint16_t routerPort;
     struct addrinfo hints, *servinfo, *p;
     int rv, returnedInfo;
@@ -258,13 +258,13 @@ public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], uint16_t nodeCount
 public: int transmitRoutingUpdates(struct routingTable *lbtt, uint16_t myPort, uint32_t myIP, uint16_t nodeCount, int s)
     {
         ssize_t bytes_sent,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(ntohs(nodeCount)*sizeof(struct routingEntry));
-        
         //updateBuffer = new unsigned char [1024];
         struct updatePacket *updateMessage=(struct updatePacket*)malloc(sizeof(struct updatePacket));
         //send nodeCount, myPort and myIP in network order only
         updateMessage->numberOfUpdateFields=nodeCount;  //2 bytes
         updateMessage->sourceRouterPort=myPort;   //2 bytes
         updateMessage->sourceRouterIP=myIP; //4 bytes
+        
         //ROUTING ENTRIES BEGIN NOW
         for(int i=1; i<=ntohs(nodeCount); i++)
         {
@@ -272,20 +272,38 @@ public: int transmitRoutingUpdates(struct routingTable *lbtt, uint16_t myPort, u
             updateMessage->routingEntries[i-1].destinationRouterPort = lbtt[i].routerPort; //2 bytes
             updateMessage->routingEntries[i-1].padding=0; //2 bytes
             updateMessage->routingEntries[i-1].destinationRouterID = lbtt[i].destinationRouterID;//2 bytes
-            updateMessage->routingEntries[i-1].metricCost = lbtt[i].metricCost;// 2bytes
+            updateMessage->routingEntries[i-1].metricCost = htons(lbtt[i].metricCost);// 2bytes
         }
         
+//        printf("lbtt[1]:COST  [%u]\n", (lbtt[1].metricCost));
+//        printf("lbtt[2]:COST  [%u]\n", (lbtt[2].metricCost));
+//        printf("lbtt[3]:COST  [%u]\n", (lbtt[3].metricCost));
+//        printf("lbtt[4]:COST  [%u]\n", (lbtt[4].metricCost));
+       
+//        printf("lbtt[1]:NE? (YES=1 NO=0) [%d]\n", lbtt[1].ne);
+//        printf("lbtt[2]:NE? (YES=1 NO=0) [%d]\n", lbtt[2].ne);
+//        printf("lbtt[3]:NE? (YES=1 NO=0) [%d]\n", lbtt[3].ne);
+//        printf("lbtt[4]:NE? (YES=1 NO=0) [%d]\n", lbtt[4].ne);
+       
+//        printf("lbtt[1]:ACTIVE? (YES=1 NO=0) [%d]\n", lbtt[1].active);
+//        printf("lbtt[2]:ACTIVE? (YES=1 NO=0) [%d]\n", lbtt[2].active);
+//        printf("lbtt[3]:ACTIVE? (YES=1 NO=0) [%d]\n", lbtt[3].active);
+//        printf("lbtt[4]:ACTIVE? (YES=1 NO=0) [%d]\n", lbtt[4].active);
+        
+    
         for(int i=1;i<=ntohs(nodeCount);i++)
         {
             if(lbtt[i].ne==true && lbtt[i].active==true)
             {
                 struct sockaddr_in dest;
                 dest.sin_family=AF_INET;
-                dest.sin_port=ntohs(lbtt[i].routerPort);
+                dest.sin_port=lbtt[i].routerPort;
                 dest.sin_addr= *(struct in_addr *)&lbtt[i].destinationIP;
                 //sendto(<#int#>, <#const void *#>, <#size_t#>, <#int#>, <#const struct sockaddr *#>, <#socklen_t#>)
                 //recvfrom(<#int#>, <#void *#>, <#size_t#>, <#int#>, <#struct sockaddr *#>, <#socklen_t *#>)
                 bytes_sent=sendto(s, (struct updatePacket*)updateMessage, size, 0,(struct sockaddr*)&dest, sizeof dest);
+                char *ip=inet_ntoa(dest.sin_addr);
+                printf("[PERIODIC UPDATE] - SENDING %zd bytes of routing update to %s on port [%u]\n", bytes_sent, ip, ntohs(lbtt[i].routerPort));
             }
         }
 
@@ -331,10 +349,6 @@ public: int establishRoutingUpdates(uint16_t rp)
                 close(sockfdUpdates);
                 perror("server: bind\n");
                 continue;
-            }
-            else
-            {
-                printf("[%s] Bind to Router now. Router now listening for updates\n", listenPort);
             }
             break;
         }
@@ -434,8 +448,10 @@ public: int estalblishRouter(uint16_t controlPort)
             tempRead_fds = masterDescriptor;
             selectCallTimer.tv_sec=1.0;
             selectCallTimer.tv_usec=0.0;
+            
             //SELECT CALL
             selectReturn=select(fdMaxNumber+1, &tempRead_fds, NULL, NULL, &selectCallTimer);
+           
             //CHECK FOR SELECT RETURN CASES
             if(selectReturn==-1)//bad select
             {
@@ -446,30 +462,37 @@ public: int estalblishRouter(uint16_t controlPort)
                 /*select with no timely response - HANDLE MISSED UDP UPDATES HERE
                  THIS BLOCK WILL BE FIRED EVERY UNIT TIME AND A TIMER VARIABLE WILL
                  BE USED TO KEEP TRACK*/
+                
                 printf("Entered this block\n");
                 
                 stopwatch++;
                 printf("timer value: %d\n",stopwatch);
                 if(stopwatch==ntohs(updateInterval))
                 {
+                    printf("sockdfUpdates before sending update is: [%d]\n",sockfdUpdates);
                     transmitRoutingUpdates(localBaseTopologyTable, whoAmiPort, whoAmiID, nodeCount, sockfdUpdates);
                     stopwatch=0;
-                    printf("PERIODIC UPDATE SENT from [%u]\n", ntohs(whoAmiID));
+                    //printf("PERIODIC UPDATE SENT from [%u]\n", ntohs(whoAmiID));
                 }
+                printf("#before for\n");
                 for(int i=1; i<=ntohs(nodeCount); i++)												// check if any neighbor missed 3 consecutive updates
                 {																					//cout<<"Server ID "<<local_table[i].server_id<<endl;
+                    printf("#inside for\n");
                     if (localBaseTopologyTable[i].ne==true && localBaseTopologyTable[i].active==true && localBaseTopologyTable[i].doesExist==true)
                     {
                         localBaseTopologyTable[i].uptime++;											//cout<<"Neighbor ID "<<local_table[i].server_id<<" Time Since Last Update "<<local_table[i].time_since_update<<endl;
+                        
+                        printf("time since update: %d\n", localBaseTopologyTable[i].uptime);
                         if(localBaseTopologyTable[i].uptime==(ntohs(updateInterval)*3))
                         {
                             localBaseTopologyTable[i].nextHopID=-1;
-                            dv[whoAmiID][i]=INF;
+                            dv[ntohs(whoAmiID)][i]=INF;
                             for (int j = 1; j <=ntohs(nodeCount); j++)
                             {
+                                printf("setting dv to inf\n");
                                 dv[i][j]=INF;
                             }
-                            printf("No update received from Neighbor [%u] for %d secs, setting cost to INF\n",localBaseTopologyTable[i].destinationRouterID, ntohs(updateInterval)*3);
+                            printf("No update received from Neighbor [%u] for %d secs, setting cost to INF\n",ntohs(localBaseTopologyTable[i].destinationRouterID), ntohs(updateInterval)*3);
                             //calling bellman-ford INSTANCE #3
                             distanveVectorRoutingAlgorithm(dv, nodeCount, whoAmiID, localBaseTopologyTable);
                             //bellman_ford(my_server_id, number_servers, local_table, distance_vector);
@@ -482,13 +505,14 @@ public: int estalblishRouter(uint16_t controlPort)
             {
                 //good select with timely response either from controller, UDP updates or the DATA PORT
                 
-                for(int i=0;i<=fdMaxNumber+1;i++)
+                
+                for(iSocket=0;iSocket<=fdMaxNumber+1;iSocket++)
                 {
-                    if(FD_ISSET(i, &tempRead_fds))
+                    if(FD_ISSET(iSocket, &tempRead_fds))
                     {
-                        if(i==sockfdController)
+                        if(iSocket==sockfdController)
                         {
-                            printf("found connection from CONTROLLER\n");
+                            printf("found connection from CONTROLLER, sockfdController value is [%d]\n",sockfdController);
                             clientLength=sizeof(clientAddress);
                             newsockfd=accept(sockfdController, (sockaddr *)&clientAddress, &clientLength);
                             if(newsockfd==-1)
@@ -497,7 +521,7 @@ public: int estalblishRouter(uint16_t controlPort)
                             }
                             else    //good accept
                             {
-                                printf("adding newsockfd to masterDescriptor\n");
+                                printf("adding newsockfd [%d] to masterDescriptor\n", newsockfd);
                                 FD_SET(newsockfd, &masterDescriptor);
                                 if(newsockfd>fdMaxNumber)
                                 {
@@ -525,13 +549,14 @@ public: int estalblishRouter(uint16_t controlPort)
                             }//end of good accept
                         
                         }
-                        else if(i==sockfdUpdates)   //to handle UDP updates
+                        else if(iSocket==sockfdUpdates)   //to handle UDP updates
                         {
                             ssize_t bytes_received,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(ntohs(nodeCount) *sizeof(struct routingEntry));
                             struct updatePacket *updateMessage=(updatePacket*)malloc(size);
-
-                            bytes_received=recvfrom(i, (struct updatePacket*)updateMessage, size, 0, NULL, NULL);
-                            printf("number of update fields are: %u\n", ntohs(updateMessage->numberOfUpdateFields));
+                            
+                            bytes_received=recvfrom(iSocket, (struct updatePacket*)updateMessage, size, 0, NULL, NULL);
+                            printf("[PERIODIC UPDATE] - RECEIVING %zd bytes of routing update on %u\n", bytes_received, ntohs(whoAmiPort));
+                            printf("[PERIODIC UPDATE] - number of update fields in the update: %u\n", ntohs(updateMessage->numberOfUpdateFields));
                             if(bytes_received==size)
                             {
                                 int remote_server_id = 0;
@@ -541,7 +566,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     if(ntohs(updateMessage->routingEntries[i-1].metricCost==0))
                                     {
                                         remote_server_id=ntohs(updateMessage->routingEntries[i-1].destinationRouterID);
-                                        printf("remote server from where update came is: %u",remote_server_id);
+                                        printf("remote server from where update came is: %u\n",remote_server_id);
                                     }
                                 }
                                 if (localBaseTopologyTable[remote_server_id].active==true)
@@ -571,7 +596,7 @@ public: int estalblishRouter(uint16_t controlPort)
                             }
                             memset((struct updatePacket*)updateMessage,'\0',size);
                             //code to get peer info:
-                            getpeername(i, (struct sockaddr *) &clientAddress, &clientLength);
+                            getpeername(iSocket, (struct sockaddr *) &clientAddress, &clientLength);
                             
                             if(clientAddress.ss_family == AF_INET)
                             {
@@ -585,10 +610,10 @@ public: int estalblishRouter(uint16_t controlPort)
                                 clientPort = ntohs(peername->sin6_port);
                                 inet_ntop(AF_INET, &peername->sin6_addr, storeAddress, sizeof (storeAddress));
                             }
-                            printf("Accepting %zd Bytes of Routing Update from %s: %d on socket %d\n\n",bytes_received, storeAddress, clientPort, i);
+                            printf("Accepting %zd Bytes of Routing Update from %s: %d on socket %d\n\n",bytes_received, storeAddress, clientPort, iSocket);
 
                         }
-                        else if(i==sockfdData)
+                        else if(iSocket==sockfdData)
                         {
                             //handle data port here
                         }
@@ -605,7 +630,7 @@ public: int estalblishRouter(uint16_t controlPort)
                             printf("size of receive buffer is: %lu\n", sizeof(controlBuffer));
                             
                             //READ DATA FROM CONTROLLER
-                            if((readBytes = recv(i,controlBuffer,1024,0)) <=0)
+                            if((readBytes = recv(iSocket,controlBuffer,1024,0)) <=0)
                             {
                                 if(readBytes==0)
                                 {
@@ -617,8 +642,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                     perror("ERROR IN RECEIVING");
                                     //break;
                                 }
-                                close(i);
-                                FD_CLR(i,&masterDescriptor);
+                                close(iSocket);
+                                FD_CLR(iSocket,&masterDescriptor);
                             }
                             
                             
@@ -720,12 +745,12 @@ public: int estalblishRouter(uint16_t controlPort)
                                     memcpy(&cpp->nodes, controlBuffer, 2);
                                     controlBuffer+=2;
                                     printf("No. of nodes: %u\n",ntohs(cpp->nodes));
-                                    printf("setting nodeCount globally to: %u\n", ntohs(nodeCount));
                                     nodeCount = cpp->nodes;
+                                    printf("setting nodeCount globally to: %u\n", ntohs(nodeCount));
                                     memcpy(&cpp->updateInterval, controlBuffer, 2);
                                     controlBuffer-=10;
-                                    printf("setting updateInterval globally to: %u\n", ntohs(updateInterval));
                                     updateInterval=cpp->updateInterval;
+                                    printf("setting updateInterval globally to: %u\n", ntohs(updateInterval));
                                     printf("Update Interval: %u\n",ntohs(cpp->updateInterval));
                                    
                                     
@@ -789,13 +814,13 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //find ne count
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
                                         {
-                                            printf("##ne count inc CASE 1\n");
+                                            //printf("##ne count inc CASE 1\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[0])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
                                         {
-                                            printf("##ne count inc CASE 2\n");
+                                            //printf("##ne count inc CASE 2\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[1])].ne=true;
                                         }
@@ -851,19 +876,19 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //find ne count
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
                                         {
-                                            printf("##ne count inc CASE 1\n");
+                                            //printf("##ne count inc CASE 1\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[0])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
                                         {
-                                            printf("##ne count inc CASE 2\n");
+                                            //printf("##ne count inc CASE 2\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[1])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
                                         {
-                                            printf("##ne count inc CASE 3\n");
+                                            //printf("##ne count inc CASE 3\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[2])].ne=true;
                                         }
@@ -931,26 +956,26 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //find ne count
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
                                         {
-                                            printf("##ne count inc CASE 1\n");
+                                            //printf("##ne count inc CASE 1\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[0])].ne=true;
                                             //printf("[%d] is NE (YES = 1 NO = 0) : %d\n",1, localBaseTopologyTable[0].ne);
                                         }
                                         if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
                                         {
-                                            printf("##ne count inc CASE 2\n");
+                                            //printf("##ne count inc CASE 2\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[1])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
                                         {
-                                            printf("##ne count inc CASE 3\n");
+                                            //printf("##ne count inc CASE 3\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[2])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[3])!= 65535 && (ntohs(cpp->metric[3])!=0))
                                         {
-                                            printf("##ne count inc CASE 4\n");
+                                            //printf("##ne count inc CASE 4\n");
                                             neighborCount++;
                                             localBaseTopologyTable[ntohs(cpp->routerID[3])].ne=true;
                                         }
@@ -1063,7 +1088,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     //done for 5 routers
                                     
                                     
-                                    for(i=0;i<(ntohs(cpp->nodes));i++)
+                                    for(int i=0;i<(ntohs(cpp->nodes));i++)
                                     {
                                         printf("Router ID [%d] : %u\n",i+1, ntohs(cpp->routerID[i]));
                                         printf("Router Port [%d] : %u\n",i+1,ntohs(cpp->routerPort[i]));
@@ -1108,7 +1133,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("whoAmiID is - [%u]\n", ntohs(whoAmiID));
                                     char * str = inet_ntoa(*(struct in_addr *)&whoAmiIP);
                                     printf("whoAmiIP is - [%s]\n", str);
-                                    printf("whoAmiPort is - [%u]", ntohs(whoAmiPort));
+                                    printf("whoAmiPort is - [%u]\n", ntohs(whoAmiPort));
                                     
                                     /*
                                      2. find total number of nodes, run loop and POPULATE whatever was read from control message:
@@ -1130,8 +1155,9 @@ public: int estalblishRouter(uint16_t controlPort)
                                         localBaseTopologyTable[i].destinationIP=cpp->routerIP[i-1];
                                         localBaseTopologyTable[i].routerPort=cpp->routerPort[i-1];
                                         localBaseTopologyTable[i].sourceRouterIP=whoAmiIP;
-                                        localBaseTopologyTable[i].active=false;
+                                        localBaseTopologyTable[i].active=true;
                                         localBaseTopologyTable[i].uptime=INF;
+                                        localBaseTopologyTable[i].doesExist=false;
                                     }
                                     
                                     /*3. find number of neighbors and who are ne for which and populate details for them*/
@@ -1155,7 +1181,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     
                                     /*5. update own cost, own next hop id and own uptime*/
                                     localBaseTopologyTable[ntohs(whoAmiID)].metricCost=0;
-                                    localBaseTopologyTable[ntohs(whoAmiID)].nextHopID=whoAmiID;
+                                    localBaseTopologyTable[ntohs(whoAmiID)].nextHopID=ntohs(whoAmiID);
                                     localBaseTopologyTable[ntohs(whoAmiID)].uptime=0;
                                     
                                     /*PRINT localBaseTopologyTable for TESTING*/
@@ -1208,10 +1234,10 @@ public: int estalblishRouter(uint16_t controlPort)
                                     /*print ROUTING TABLE HERE FOR TESTING PUPOSES*/
                                     
                                     printf("---------PRINTING CURRENT ROUTING TABLE-----------\n");
-                                    printf("%-15s%-15s%-15s\n", "server_id","next_hop","cost");
+                                    printf("%-15s%-15s%-15s\n", "RID","NEXT HOP ID","METRIC");
                                     for (int i = 1; i <= ntohs(nodeCount); ++i)
                                     {
-                                        printf("%-15d%-15d%-15d\n", ntohs(localBaseTopologyTable[i].destinationRouterID),ntohs(localBaseTopologyTable[i].nextHopID),ntohs(localBaseTopologyTable[i].metricCost));
+                                        printf("%-15d%-15d%-15d\n", ntohs(localBaseTopologyTable[i].destinationRouterID),(localBaseTopologyTable[i].nextHopID),(localBaseTopologyTable[i].metricCost));
                                     }
                                     
                                     

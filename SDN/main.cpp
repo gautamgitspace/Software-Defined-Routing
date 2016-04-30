@@ -299,8 +299,6 @@ public: int transmitRoutingUpdates(struct routingTable *lbtt, uint16_t myPort, u
                 dest.sin_family=AF_INET;
                 dest.sin_port=lbtt[i].routerPort;
                 dest.sin_addr= *(struct in_addr *)&lbtt[i].destinationIP;
-                //sendto(<#int#>, <#const void *#>, <#size_t#>, <#int#>, <#const struct sockaddr *#>, <#socklen_t#>)
-                //recvfrom(<#int#>, <#void *#>, <#size_t#>, <#int#>, <#struct sockaddr *#>, <#socklen_t *#>)
                 bytes_sent=sendto(s, (struct updatePacket*)updateMessage, size, 0,(struct sockaddr*)&dest, sizeof dest);
                 char *ip=inet_ntoa(dest.sin_addr);
                 printf("[PERIODIC UPDATE] - SENDING %zd bytes of routing update to %s on port [%u]\n", bytes_sent, ip, ntohs(lbtt[i].routerPort));
@@ -372,8 +370,6 @@ public: int establishRoutingUpdates(uint16_t rp)
         }
         return 1;
     }
-
-    
 public: int estalblishRouter(uint16_t controlPort)
     {
         
@@ -444,7 +440,6 @@ public: int estalblishRouter(uint16_t controlPort)
         fdMaxNumber=sockfdController;
         printf("fdMaxNumber in FD_SET:CONTROLLER is: %d\n",fdMaxNumber);
         struct timeval selectCallTimer;
-        int dataSocket;
         
         for(;;)
         {
@@ -486,6 +481,7 @@ public: int estalblishRouter(uint16_t controlPort)
                         if(localBaseTopologyTable[i].uptime==(ntohs(updateInterval)*3))
                         {
                             localBaseTopologyTable[i].nextHopID=-1;
+                            localBaseTopologyTable[i].active=false;
                             dv[ntohs(whoAmiID)][i]=INF;
                             for (int j = 1; j <=ntohs(nodeCount); j++)
                             {
@@ -739,12 +735,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                     sprintf(hex, "%x", cph->controlCode);
                                     printf("control code %s found. Routing Table will be populated\n",hex);
                                     struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
-                                    //call to unpack to extract payload using args as: 16(H), 16(H), 16(H), 16(H), 16(H), 16(H), 32(L)
-                                    
-                                    
-                                    //unpack(controlBuffer, "LCCHHHHHHHLHHHHLHHHHLHHHHLHHHHL", &cph->destinationIP, &cph->controlCode, &cph->responseTime, &cph->payloadLength , &cpp->nodes, &cpp->updateInterval, &cpp->routerID[0], &cpp->routerPort[0], &cpp->dataPort[0], &cpp->metric[0], &cpp->routerIP[0], &cpp->routerID[1], &cpp->routerPort[1], &cpp->dataPort[1], &cpp->metric[1], &cpp->routerIP[1], &cpp->routerID[2], &cpp->routerPort[2], &cpp->dataPort[2], &cpp->metric[2], &cpp->routerIP[2], &cpp->routerID[3], &cpp->routerPort[3], &cpp->dataPort[3], &cpp->metric[3], &cpp->routerIP[3], &cpp->routerID[4], &cpp->routerPort[4], &cpp->dataPort[4], &cpp->metric[4], &cpp->routerIP[4]);
-                                    
-                                    
                                     
                                     printf("--------PAYLOAD CONTAINS--------\n");
                                     controlBuffer+=8;
@@ -1061,22 +1051,27 @@ public: int estalblishRouter(uint16_t controlPort)
                                         if(ntohs(cpp->metric[0])!= 65535 && (ntohs(cpp->metric[0])!=0))
                                         {
                                             neighborCount++;
+                                            localBaseTopologyTable[ntohs(cpp->routerID[0])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[1])!= 65535 && (ntohs(cpp->metric[1])!=0))
                                         {
                                             neighborCount++;
+                                            localBaseTopologyTable[ntohs(cpp->routerID[1])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[2])!= 65535 && (ntohs(cpp->metric[2])!=0))
                                         {
                                             neighborCount++;
+                                            localBaseTopologyTable[ntohs(cpp->routerID[2])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[3])!= 65535 && (ntohs(cpp->metric[3])!=0))
                                         {
                                             neighborCount++;
+                                            localBaseTopologyTable[ntohs(cpp->routerID[3])].ne=true;
                                         }
                                         if(ntohs(cpp->metric[4])!= 65535 && (ntohs(cpp->metric[4])!=0))
                                         {
                                             neighborCount++;
+                                            localBaseTopologyTable[ntohs(cpp->routerID[4])].ne=true;
                                         }
                                         
                                         //find whoAmiID
@@ -1565,9 +1560,10 @@ public: int estalblishRouter(uint16_t controlPort)
                                 else if(cph->controlCode==4)
                                 {
                                     //CRASH-TURN OFF ROUTING OPERATIONS- NO RESPONSE REQUIRED EXCEPT HEADER
-                                    printf("control code 0x04 found. Router will crash now\n");
+                                    printf("control code 0x04 found. Router [%d] will crash now\n", ntohs(whoAmiID));
                                     //generate response before exiting
-                                    printf("Trying to pack\n");
+                                    //localBaseTopologyTable[ntohs(whoAmiID)].active=false;
+                                    
                                     controlResponseBuffer = new unsigned char [1024];
                                     struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                     printf("trying to pack\n");
@@ -1587,6 +1583,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     {
                                         printf("failed to send control response header\n");
                                     }
+                                    printf("response sent to controller\n");
                                     //system exit and all operations stop
                                     exit(0);
                                 }//cc4 ends
@@ -1656,13 +1653,6 @@ public: int estalblishRouter(uint16_t controlPort)
                                     memcpy(&cpp->transferID, controlBuffer, 1);
                                     
                                     
-                                    //                                        printf("unpacking again for code %s \n", hex);
-                                    //                                        printf("--------HEADER CONTAINS---------\n");
-                                    //                                        char * str = inet_ntoa(*(struct in_addr *)&cph->destinationIP);
-                                    //                                        printf("dest IP: %s\n", str);
-                                    //                                        printf("control code: %u\n", cph->controlCode);
-                                    //                                        printf("response time: %u\n", cph->responseTime);
-                                    //                                        printf("payload length: %u\n", cph->payloadLength);
                                     printf("--------PAYLOAD CONTAINS--------\n");
                                     printf("Stats needed for ID: %u\n",cpp->transferID);
                                 }//cc6 ends

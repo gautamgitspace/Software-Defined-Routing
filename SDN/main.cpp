@@ -222,30 +222,36 @@ public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], uint16_t nodeCount
     {
         for(int i=1; i<=ntohs(nodeCount) ; i++)
         {
+            int tempNextHopID=-1;
+            int comparator=INF;
+            int maxHop=65535;
             if(i==ntohs(myID))
             {
                 continue;
             }
-            int min=INF;
-            int tempNextHopID=-1;
             
             for(int j=1; j<=ntohs(nodeCount); j++)
             {
-                if (lbtt[j].ne==true && lbtt[j].active==true && j!=ntohs(myID))
+                if (lbtt[j].ne==true)
                 {
-                    if(min > (dv[ntohs(myID)][j]+dv[j][i]))
+                    if(lbtt[j].active==true)
                     {
-                        min=dv[ntohs(myID)][j]+dv[j][i];
-                        tempNextHopID=j;
+                        if(j!=ntohs(myID))
+                        {
+                            if(comparator > (dv[ntohs(myID)][j]+dv[j][i]))
+                            {
+                                comparator=dv[ntohs(myID)][j]+dv[j][i];
+                                tempNextHopID=j;
+                            }
+                        }
                     }
                 }
             }
             
-            dv[ntohs(myID)][i]=min;
-            lbtt[i].metricCost=min;
+            dv[ntohs(myID)][i]=comparator;
             lbtt[i].nextHopID=tempNextHopID;
-            
-            if(dv[ntohs(myID)][i]==65535)
+            lbtt[i].metricCost=comparator;
+            if(dv[ntohs(myID)][i]==maxHop)
             {
                 lbtt[i].nextHopID=-1;
             }
@@ -257,7 +263,7 @@ public: int distanveVectorRoutingAlgorithm(uint16_t dv[][10], uint16_t nodeCount
 // send nodeCount in network order when calling this method. still to decide on myPort and myIP
 public: int transmitRoutingUpdates(struct routingTable *lbtt, uint16_t myPort, uint32_t myIP, uint16_t nodeCount, int s)
     {
-        ssize_t bytes_sent,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(ntohs(nodeCount)*sizeof(struct routingEntry));
+        ssize_t sentBytes,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(ntohs(nodeCount)*sizeof(struct routingEntry));
         //updateBuffer = new unsigned char [1024];
         struct updatePacket *updateMessage=(struct updatePacket*)malloc(sizeof(struct updatePacket));
         //send nodeCount, myPort and myIP in network order only
@@ -293,19 +299,20 @@ public: int transmitRoutingUpdates(struct routingTable *lbtt, uint16_t myPort, u
     
         for(int i=1;i<=ntohs(nodeCount);i++)
         {
-            if(lbtt[i].ne==true && lbtt[i].active==true)
+            if(lbtt[i].ne==true)
             {
-                struct sockaddr_in dest;
-                dest.sin_family=AF_INET;
-                dest.sin_port=lbtt[i].routerPort;
-                dest.sin_addr= *(struct in_addr *)&lbtt[i].destinationIP;
-                bytes_sent=sendto(s, (struct updatePacket*)updateMessage, size, 0,(struct sockaddr*)&dest, sizeof dest);
-                char *ip=inet_ntoa(dest.sin_addr);
-                printf("[PERIODIC UPDATE] - SENDING %zd bytes of routing update to %s on port [%u]\n", bytes_sent, ip, ntohs(lbtt[i].routerPort));
+                if(lbtt[i].active==true)
+                {
+                    struct sockaddr_in dest;
+                    dest.sin_family=AF_INET;
+                    dest.sin_port=lbtt[i].routerPort;
+                    dest.sin_addr= *(struct in_addr *)&lbtt[i].destinationIP;
+                    sentBytes=sendto(s, (struct updatePacket*)updateMessage, size, 0,(struct sockaddr*)&dest, sizeof dest);
+                    char *ip=inet_ntoa(dest.sin_addr);
+                    printf("[PERIODIC UPDATE] - SENDING %zd bytes of routing update to %s on port [%u]\n", sentBytes, ip, ntohs(lbtt[i].routerPort));
+                }
             }
         }
-
-        
         return 0;
     }
 public: int establishRoutingUpdates(uint16_t rp)
@@ -319,6 +326,7 @@ public: int establishRoutingUpdates(uint16_t rp)
         listenPort=(char*)malloc(sizeof(int)+1);
         sprintf(listenPort, "%d", routerPort);
         
+        /*setting up DATAGRAM SOCKET - code from BEEJ NETWORK PRGRAMMING GUIDE*/
         printf("setting families\n");
         hints.ai_family = AF_INET;
         hints.ai_socktype = SOCK_DGRAM;
@@ -335,13 +343,13 @@ public: int establishRoutingUpdates(uint16_t rp)
         {
             if ((sockfdUpdates = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)   //SOCKET
             {
-                perror("listener: socket\n");
+                printf("listener: Could not create socket\n");
                 continue;
             }
             if(setsockopt(sockfdUpdates, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))==-1)
             {
-                perror("setsockopt");
-                exit(1);
+                printf("setsockopt: check SO_REUSEADDR");
+                exit(2);
             }
             if(::bind(sockfdUpdates, p->ai_addr, p->ai_addrlen) < -1)   //BIND
             {
@@ -381,6 +389,7 @@ public: int estalblishRouter(uint16_t controlPort)
         sprintf(controlPortChar, "%d", controlPort);
         //printf("%s\n",controlPortChar);
         
+        /*Setting up TCP SOCKET - code taken from BEEJ NETWORK PROGRAMMING GUIDE*/
         FD_ZERO(&masterDescriptor);
         FD_ZERO(&tempRead_fds);
         
@@ -461,38 +470,43 @@ public: int estalblishRouter(uint16_t controlPort)
                  THIS BLOCK WILL BE FIRED EVERY UNIT TIME AND A TIMER VARIABLE WILL
                  BE USED TO KEEP TRACK*/
                 
-                stopwatch++;
                 printf("timer value: %d\n",stopwatch);
+                stopwatch++;
                 if(stopwatch==ntohs(updateInterval))
                 {
                     printf("sockdfUpdates before sending update is: [%d]\n",sockfdUpdates);
                     transmitRoutingUpdates(localBaseTopologyTable, whoAmiPort, whoAmiID, nodeCount, sockfdUpdates);
                     stopwatch=0;
-                    //printf("PERIODIC UPDATE SENT from [%u]\n", ntohs(whoAmiID));
                 }
                 
                 for(int i=1; i<=ntohs(nodeCount); i++)
                 {
-                    if (localBaseTopologyTable[i].ne==true && localBaseTopologyTable[i].active==true && localBaseTopologyTable[i].doesExist==true)
+                    if (localBaseTopologyTable[i].ne==true)
                     {
-                        localBaseTopologyTable[i].uptime++;
+                       if(localBaseTopologyTable[i].doesExist==true)
+                       {
+                           if(localBaseTopologyTable[i].active==true)
+                           {
+                               localBaseTopologyTable[i].uptime++;
                         
-                        printf("time since update: %d\n", localBaseTopologyTable[i].uptime);
-                        if(localBaseTopologyTable[i].uptime==(ntohs(updateInterval)*3))
-                        {
-                            localBaseTopologyTable[i].nextHopID=-1;
-                            localBaseTopologyTable[i].active=false;
-                            dv[ntohs(whoAmiID)][i]=INF;
-                            for (int j = 1; j <=ntohs(nodeCount); j++)
-                            {
-                                printf("setting dv to inf\n");
-                                dv[i][j]=INF;
-                            }
-                            printf("No update received from Neighbor [%u] for %d secs, setting cost to INF\n",ntohs(localBaseTopologyTable[i].destinationRouterID), ntohs(updateInterval)*3);
-                            //calling bellman-ford INSTANCE #3
-                            distanveVectorRoutingAlgorithm(dv, nodeCount, whoAmiID, localBaseTopologyTable);
-                            //bellman_ford(my_server_id, number_servers, local_table, distance_vector);
-                        }
+                                printf("time since update: %d\n", localBaseTopologyTable[i].uptime);
+                                if(localBaseTopologyTable[i].uptime==(ntohs(updateInterval)*3))
+                                {
+                                    localBaseTopologyTable[i].nextHopID=-1;
+                                    localBaseTopologyTable[i].active=false;
+                                    dv[ntohs(whoAmiID)][i]=INF;
+                                        for (int j = 1; j <=ntohs(nodeCount); j++)
+                                        {
+                                            printf("setting dv to inf\n");
+                                            dv[i][j]=INF;
+                                        }
+                                    printf("No update received from Neighbor [%u] for %d secs, setting cost to INF\n",ntohs(localBaseTopologyTable[i].destinationRouterID), ntohs(updateInterval)*3);
+                                    //calling bellman-ford INSTANCE #3
+                                    distanveVectorRoutingAlgorithm(dv, nodeCount, whoAmiID, localBaseTopologyTable);
+                                    //bellman_ford(my_server_id, number_servers, local_table, distance_vector);
+                                }
+                           }
+                       }
                     }
                 }
                 
@@ -547,46 +561,47 @@ public: int estalblishRouter(uint16_t controlPort)
                         }
                         else if(iSocket==sockfdUpdates)   //to handle UDP updates
                         {
-                            ssize_t bytes_received,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(ntohs(nodeCount) *sizeof(struct routingEntry));
+                            ssize_t receivedBytes,size=(2*sizeof(uint16_t))+(sizeof(struct in_addr))+(ntohs(nodeCount) *sizeof(struct routingEntry));
                             struct updatePacket *updateMessage=(updatePacket*)malloc(size);
                             
-                            bytes_received=recvfrom(iSocket, (struct updatePacket*)updateMessage, size, 0, NULL, NULL);
-                            printf("[PERIODIC UPDATE] - RECEIVING %zd bytes of routing update on %u\n", bytes_received, ntohs(whoAmiPort));
+                            receivedBytes=recvfrom(iSocket, (struct updatePacket*)updateMessage, size, 0, NULL, NULL);
+                            printf("[PERIODIC UPDATE] - RECEIVING %zd bytes of routing update on %u\n", receivedBytes, ntohs(whoAmiPort));
                             printf("[PERIODIC UPDATE] - number of update fields in the update: %u\n", ntohs(updateMessage->numberOfUpdateFields));
-                            if(bytes_received==size)
+                            if(receivedBytes==size)
                             {
-                                int remote_server_id = 0;
+                                int advertiserID = 0;
+                                int numberOfFields = ntohs(updateMessage->numberOfUpdateFields);
                                 for(int i=1; i<=ntohs(updateMessage->numberOfUpdateFields); i++)
                                 {
                                     //identify the advertiser based on cost he advertises to himself (if 0 he is the remote ID)
-                                    if(ntohs(updateMessage->routingEntries[i-1].metricCost==0))
+                                    int advertiserCost = ntohs(updateMessage->routingEntries[i-1].metricCost);
+                                    if(advertiserCost==0)
                                     {
-                                        remote_server_id=ntohs(updateMessage->routingEntries[i-1].destinationRouterID);
-                                        printf("remote server from where update came is: %u\n",remote_server_id);
+                                        advertiserID=ntohs(updateMessage->routingEntries[i-1].destinationRouterID);
+                                        printf("remote server from where update came is: %u\n",advertiserID);
                                     }
                                 }
-                                if (localBaseTopologyTable[remote_server_id].active==true)
+                                if (localBaseTopologyTable[advertiserID].active==true)
                                 {
                                     
-                                    if (localBaseTopologyTable[remote_server_id].doesExist==false || localBaseTopologyTable[remote_server_id].uptime>(ntohs(updateInterval)*3))
+                                    if (localBaseTopologyTable[advertiserID].doesExist==false || localBaseTopologyTable[advertiserID].uptime>(ntohs(updateInterval)*3))
                                     {
-                                        localBaseTopologyTable[remote_server_id].doesExist=true;
-                                        dv[ntohs(whoAmiID)][remote_server_id]=neReachability[remote_server_id];
+                                        localBaseTopologyTable[advertiserID].doesExist=true;
+                                        dv[ntohs(whoAmiID)][advertiserID]=neReachability[advertiserID];
                                     }
-                                    
-                                    for(int i=1; i<=ntohs(updateMessage->numberOfUpdateFields); i++)
+                                    //REMOVE THIS PRINT STATEMENT ALONG WITH FOR BLOCK - agautam2
+                                    for(int i=1; i<=numberOfFields; i++)
                                     {
                                         printf("%-15d%-15d\n", ntohs(updateMessage->routingEntries[i-1].destinationRouterID), ntohs(updateMessage->routingEntries[i-1].metricCost));
                                     }
-                                    for(int i=1; i<=ntohs(updateMessage->numberOfUpdateFields); i++)
+                                    for(int i=1; i<=numberOfFields; i++)
                                     {
-                                        dv[remote_server_id][i]=ntohs(updateMessage->routingEntries[i-1].metricCost);
+                                        dv[advertiserID][i]=ntohs(updateMessage->routingEntries[i-1].metricCost);
                                     }
-                                    localBaseTopologyTable[remote_server_id].uptime=0;
+                                    localBaseTopologyTable[advertiserID].uptime=0;
                                     printf("timer set to zero again\n");
                                     //calling bellman-ford #INSTANCE 2
                                     distanveVectorRoutingAlgorithm(dv, nodeCount, whoAmiID, localBaseTopologyTable);
-                                    //bellman_ford(my_server_id, number_servers, local_table, distance_vector);
                                 }
                             }
                             memset((struct updatePacket*)updateMessage,'\0',size);
@@ -605,7 +620,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                 clientPort = ntohs(peername->sin6_port);
                                 inet_ntop(AF_INET, &peername->sin6_addr, storeAddress, sizeof (storeAddress));
                             }
-                            printf("Accepting %zd Bytes of Routing Update from %s: %d on socket %d\n\n",bytes_received, storeAddress, clientPort, iSocket);
+                            printf("Accepting %zd Bytes of Routing Update from %s: %d on socket %d\n\n",receivedBytes, storeAddress, clientPort, iSocket);
 
                         }
                         else if(iSocket==sockfdData)
@@ -1192,7 +1207,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("-------------------------------------------------------------------\n");
                                     printf("\n");
                                     
-                                    
+                                    //REMOVE THIS PRINT STATEMENT - agautam2
                                     printf("%-20s%-15s%-15s%-15s%-15s%-15s%-15s\n", "Dest IP", "Dest RID", "Router Port", "Next Hop ID","Metric", "A/I", "TSU");
                                     printf("\n");
                                     for(int i=1;i<=ntohs(cpp->nodes);i++)

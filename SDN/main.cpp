@@ -106,6 +106,7 @@ struct routingTable
     uint16_t nextHopID;
     uint16_t metricCost;
     uint16_t routerPort; //added later. add its functionality in the lower part of the code
+    uint16_t dataPort;
     //EXTRA FIELDS
     uint32_t destinationIP;
     uint32_t sourceRouterIP;
@@ -1165,11 +1166,19 @@ public: int estalblishRouter(uint16_t controlPort)
                                         //ne flag set to false in the starting
                                         //LBTT contains data from 1 onwards and in network order
                                         //cpp-> contains data from 0 onwards
+                                        
+                                        /*DOUBT - cost for every router(including ne) should be INF? or
+                                         for ne the cost should be what the controller sends in init.
+                                         Say for a test case in which update interval is 30 and RT is
+                                         requested*/
+                                        
+                                        
                                         localBaseTopologyTable[i].destinationRouterID=cpp->routerID[i-1];
                                         localBaseTopologyTable[i].nextHopID=-1; //for now let it be -1
-                                        localBaseTopologyTable[i].metricCost=INF;
+                                        localBaseTopologyTable[i].metricCost=INF;   // check this - agautam2
                                         localBaseTopologyTable[i].destinationIP=cpp->routerIP[i-1];
                                         localBaseTopologyTable[i].routerPort=cpp->routerPort[i-1];
+                                        localBaseTopologyTable[i].dataPort=cpp->dataPort[i-1];
                                         localBaseTopologyTable[i].sourceRouterIP=whoAmiIP;
                                         localBaseTopologyTable[i].active=true;
                                         localBaseTopologyTable[i].uptime=INF;
@@ -1241,11 +1250,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                     printf("control code 0x02 found. Routing Table requested. Will be sent\n");
                                     /*print ROUTING TABLE HERE FOR TESTING PUPOSES*/
                                     
-                                    printf("---------PRINTING CURRENT ROUTING TABLE-----------\n");
-                                    printf("%-15s%-15s%-15s\n", "RID","NEXT HOP ID","METRIC");
+                                    printf("---------PRINTING CURRENT ROUTING TABLE----------------------\n");
+                                    printf("%-15s%-15s%-15s%-15s\n", "RID","NEXT HOP ID","METRIC", "DATA PORT");
                                     for (int i = 1; i <= ntohs(nodeCount); ++i)
                                     {
-                                        printf("%-15d%-15d%-15d\n", ntohs(localBaseTopologyTable[i].destinationRouterID),(localBaseTopologyTable[i].nextHopID),(localBaseTopologyTable[i].metricCost));
+                                        printf("%-15d%-15d%-15d%-15d\n", ntohs(localBaseTopologyTable[i].destinationRouterID),(localBaseTopologyTable[i].nextHopID),(localBaseTopologyTable[i].metricCost), ntohs(localBaseTopologyTable[i].dataPort));
                                     }
                                     struct controlResponseHeader *crh = (struct controlResponseHeader *) malloc(sizeof(struct controlResponseHeader));
                                     controlResponseBuffer = new unsigned char [1024];

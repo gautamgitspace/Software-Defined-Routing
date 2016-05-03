@@ -1731,7 +1731,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         printf("cost set to otherwise\n");
                                         costIdentifier=ntohs(cpp->changedCost);
                                     }
-                                    
+                                    //wrong. find the index of that RID
                                     if(localBaseTopologyTable[ntohs(cpp->changeCostForRID)].ne==true)
                                     {
                                         printf("NE is true, neReachability will be updated\n");
@@ -1740,17 +1740,20 @@ public: int estalblishRouter(uint16_t controlPort)
                                         for(int i=1; i<=ntohs(nodeCount); i++)
                                         {
                                             printf("setting doesExist to false for all\n");
+                                            //wrong. change it to router ID at [i]
                                             localBaseTopologyTable[i].doesExist=false;
                                             printf("setting DV\n");
                                             for(int j=1; j<=ntohs(nodeCount); j++)
                                             {
                                                 if(i==j)
                                                 {
+                                                    //this is fine
                                                     printf("setting DV to 0\n");
                                                     dv[ntohs(localBaseTopologyTable[i].destinationRouterID)][ntohs(localBaseTopologyTable[j].destinationRouterID)]=0;
                                                 }
                                                 else
                                                 {
+                                                    //this is fine
                                                     printf("setting DV to INF\n");
                                                     dv[ntohs(localBaseTopologyTable[i].destinationRouterID)][ntohs(localBaseTopologyTable[j].destinationRouterID)]=INF;
                                                 }

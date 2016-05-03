@@ -127,6 +127,7 @@ struct controlPacketPayload
     uint16_t metric[5];
     uint16_t changedCost;
     uint16_t changeCostForRID;
+    uint32_t sendFileToThisIP;
     uint16_t sequenceNumber;
     uint8_t TTL;
     uint8_t transferID;
@@ -1614,17 +1615,19 @@ public: int estalblishRouter(uint16_t controlPort)
                                 else if(cph->controlCode==5)
                                 {
                                     //SENDFILE-SEND FILE TO OTHER ROUTER-NO RESPONSE REQUIRED EXCEPT HEADER
+                                    
                                     /*1. Read from the file name specified by the controller. That file will reside in the same directory.
                                      2. Packetize the file in the specified format and send it to the data port of the next hop router (found after table lookup)
                                      3. Destination router will read this and reconstruct it and write to disk
                                      4. Compute MD5 to check for proper reassembly at destination*/
+                                    
                                     char hex[5];
                                     sprintf(hex, "%x", cph->controlCode);
                                     printf("control code %s found. File needs to be sent. Waiting for payload...\n",hex);
                                     struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
                                     
                                     controlBuffer+=8;
-                                    memcpy(&cpp->routerIP, controlBuffer, 4);
+                                    memcpy(&cpp->sendFileToThisIP, controlBuffer, 4);
                                     controlBuffer+=4;
                                     memcpy(&cpp->TTL, controlBuffer, 1);
                                     controlBuffer+=1;
@@ -1636,7 +1639,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     controlBuffer-=16;
                                     
                                     printf("--------PAYLOAD CONTAINS--------\n");
-                                    char * str1= inet_ntoa(*(struct in_addr *)&cpp->routerIP[0]);
+                                    char * str1= inet_ntoa(*(struct in_addr *)&cpp->sendFileToThisIP);
                                     printf("File to be sent: %s\n",cpp->fileName);
                                     printf("Router IP to which file is to be sent: %s\n",str1);
                                     printf("TTL Value: %u\n", cpp->TTL);
@@ -1657,6 +1660,18 @@ public: int estalblishRouter(uint16_t controlPort)
                                     //printf("done 4\n");
                                     pack(controlResponseBuffer, "LCCH", (uint32_t)crh->controllerIP, (uint8_t)crh->controlCode, (uint8_t)crh->responseCode, (uint16_t)crh->payloadLength);
                                     printf("pack successful\n");
+                                    
+                                    for(int i=1;i<=ntohs(nodeCount);i++)
+                                    {
+                                     if(localBaseTopologyTable[i].destinationIP==cpp->sendFileToThisIP)
+                                     {
+                                         printf("File is to be sent to: RID[%d]\n", ntohs(localBaseTopologyTable[i].destinationRouterID));
+                                         printf("File will be routed to next hop[%d]\n", localBaseTopologyTable[i].nextHopID);
+                                     }
+                                    }
+                                    
+                                    
+                                    //send response to controller
                                     int ableToSend1 = send(newsockfd, controlResponseBuffer,8, 0);
                                     
                                     if(ableToSend1<0)

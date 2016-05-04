@@ -635,37 +635,37 @@ public: int estalblishRouter(uint16_t controlPort)
                             printf("*******************************************************************\n");
                             printf("[PERIODIC UPDATE] - RECEIVING %zd bytes of routing update on %u\n", receivedBytes, ntohs(whoAmiPort));
                             printf("[PERIODIC UPDATE] - number of update fields in the update: %u\n", ntohs(updateMessage->numberOfUpdateFields));
-                            printf("[PERIODIC UPDATE] - source port in the update: %u\n", ntohs(updateMessage->sourceRouterPort));
-                            char * str = inet_ntoa(*(struct in_addr *)&updateMessage->sourceRouterIP);
-                            printf("[PERIODIC UPDATE] - source ip in the update: %s\n", str);
-                            char * str2 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[0].destinationRouterIP);
-                            printf("[PERIODIC UPDATE] - ROUTER ip 1 in the update: %s\n", str2);
-                            printf("[PERIODIC UPDATE] - ROUTER port 1 in the update: %d\n", ntohs(updateMessage->routingEntries[0].destinationRouterPort));
-                            printf("[PERIODIC UPDATE] - ROUTER ID 1 in the update: %d\n", ntohs(updateMessage->routingEntries[0].destinationRouterID));
-                            printf("[PERIODIC UPDATE] - ROUTER cost 1 in the update: %d\n", ntohs(updateMessage->routingEntries[0].metricCost));
-                            printf("[PERIODIC UPDATE] - Padding 1 in the update: %d\n\n", ntohs(updateMessage->routingEntries[0].padding));
-                            
-                            char * str3 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[1].destinationRouterIP);
-                            printf("[PERIODIC UPDATE] - ROUTER ip 2 in the update: %s\n", str3);
-                            printf("[PERIODIC UPDATE] - ROUTER port 2 in the update: %d\n", ntohs(updateMessage->routingEntries[1].destinationRouterPort));
-                            printf("[PERIODIC UPDATE] - ROUTER ID 2 in the update: %d\n", ntohs(updateMessage->routingEntries[1].destinationRouterID));
-                            printf("[PERIODIC UPDATE] - ROUTER cost 2 in the update: %d\n", ntohs(updateMessage->routingEntries[1].metricCost));
-                            printf("[PERIODIC UPDATE] - Padding 2 in the update: %d\n\n", ntohs(updateMessage->routingEntries[1].padding));
-                            
-                            char * str4 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[2].destinationRouterIP);
-                            printf("[PERIODIC UPDATE] - ROUTER ip 3 in the update: %s\n", str4);
-                            printf("[PERIODIC UPDATE] - ROUTER port 3 in the update: %d\n", ntohs(updateMessage->routingEntries[2].destinationRouterPort));
-                            printf("[PERIODIC UPDATE] - ROUTER ID 3 in the update: %d\n", ntohs(updateMessage->routingEntries[2].destinationRouterID));
-                            printf("[PERIODIC UPDATE] - ROUTER cost 3 in the update: %d\n", ntohs(updateMessage->routingEntries[2].metricCost));
-                            printf("[PERIODIC UPDATE] - Padding 3 in the update: %d\n\n", ntohs(updateMessage->routingEntries[2].padding));
-                            
-                            char * str5 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[3].destinationRouterIP);
-                            printf("[PERIODIC UPDATE] - ROUTER ip 4 in the update: %s\n", str5);
-                            printf("[PERIODIC UPDATE] - ROUTER port 4 in the update: %d\n", ntohs(updateMessage->routingEntries[3].destinationRouterPort));
-                            printf("[PERIODIC UPDATE] - ROUTER ID 4 in the update: %d\n", ntohs(updateMessage->routingEntries[3].destinationRouterID));
-                            printf("[PERIODIC UPDATE] - ROUTER cost 4 in the update: %d\n", ntohs(updateMessage->routingEntries[3].metricCost));
-                            printf("[PERIODIC UPDATE] - Padding 4 in the update: %d\n\n", ntohs(updateMessage->routingEntries[3].padding));
-                            printf("*******************************************************************\n");
+//                            printf("[PERIODIC UPDATE] - source port in the update: %u\n", ntohs(updateMessage->sourceRouterPort));
+//                            char * str = inet_ntoa(*(struct in_addr *)&updateMessage->sourceRouterIP);
+//                            printf("[PERIODIC UPDATE] - source ip in the update: %s\n", str);
+//                            char * str2 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[0].destinationRouterIP);
+//                            printf("[PERIODIC UPDATE] - ROUTER ip 1 in the update: %s\n", str2);
+//                            printf("[PERIODIC UPDATE] - ROUTER port 1 in the update: %d\n", ntohs(updateMessage->routingEntries[0].destinationRouterPort));
+//                            printf("[PERIODIC UPDATE] - ROUTER ID 1 in the update: %d\n", ntohs(updateMessage->routingEntries[0].destinationRouterID));
+//                            printf("[PERIODIC UPDATE] - ROUTER cost 1 in the update: %d\n", ntohs(updateMessage->routingEntries[0].metricCost));
+//                            printf("[PERIODIC UPDATE] - Padding 1 in the update: %d\n\n", ntohs(updateMessage->routingEntries[0].padding));
+//                            
+//                            char * str3 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[1].destinationRouterIP);
+//                            printf("[PERIODIC UPDATE] - ROUTER ip 2 in the update: %s\n", str3);
+//                            printf("[PERIODIC UPDATE] - ROUTER port 2 in the update: %d\n", ntohs(updateMessage->routingEntries[1].destinationRouterPort));
+//                            printf("[PERIODIC UPDATE] - ROUTER ID 2 in the update: %d\n", ntohs(updateMessage->routingEntries[1].destinationRouterID));
+//                            printf("[PERIODIC UPDATE] - ROUTER cost 2 in the update: %d\n", ntohs(updateMessage->routingEntries[1].metricCost));
+//                            printf("[PERIODIC UPDATE] - Padding 2 in the update: %d\n\n", ntohs(updateMessage->routingEntries[1].padding));
+//                            
+//                            char * str4 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[2].destinationRouterIP);
+//                            printf("[PERIODIC UPDATE] - ROUTER ip 3 in the update: %s\n", str4);
+//                            printf("[PERIODIC UPDATE] - ROUTER port 3 in the update: %d\n", ntohs(updateMessage->routingEntries[2].destinationRouterPort));
+//                            printf("[PERIODIC UPDATE] - ROUTER ID 3 in the update: %d\n", ntohs(updateMessage->routingEntries[2].destinationRouterID));
+//                            printf("[PERIODIC UPDATE] - ROUTER cost 3 in the update: %d\n", ntohs(updateMessage->routingEntries[2].metricCost));
+//                            printf("[PERIODIC UPDATE] - Padding 3 in the update: %d\n\n", ntohs(updateMessage->routingEntries[2].padding));
+//                            
+//                            char * str5 = inet_ntoa(*(struct in_addr *)&updateMessage->routingEntries[3].destinationRouterIP);
+//                            printf("[PERIODIC UPDATE] - ROUTER ip 4 in the update: %s\n", str5);
+//                            printf("[PERIODIC UPDATE] - ROUTER port 4 in the update: %d\n", ntohs(updateMessage->routingEntries[3].destinationRouterPort));
+//                            printf("[PERIODIC UPDATE] - ROUTER ID 4 in the update: %d\n", ntohs(updateMessage->routingEntries[3].destinationRouterID));
+//                            printf("[PERIODIC UPDATE] - ROUTER cost 4 in the update: %d\n", ntohs(updateMessage->routingEntries[3].metricCost));
+//                            printf("[PERIODIC UPDATE] - Padding 4 in the update: %d\n\n", ntohs(updateMessage->routingEntries[3].padding));
+//                            printf("*******************************************************************\n");
                             if(receivedBytes==size)
                             {
                                 int advertiserID = 0;
@@ -1669,6 +1669,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                     /*The controller uses this to change/update the link cost between between the router receiving this message and a NEIGHBORING router. This control message will always be sent in pairs to both the routers involved in a link.*/
                                     
                                     char hex[5];
+                                    int index=0;
                                     sprintf(hex, "%x", cph->controlCode);
                                     printf("control code %s found. Routing Table will be populated. Waiting for payload...\n",hex);
                                     struct controlPacketPayload *cpp = (struct controlPacketPayload *) malloc(sizeof(struct controlPacketPayload));
@@ -1731,8 +1732,14 @@ public: int estalblishRouter(uint16_t controlPort)
                                         printf("cost set to otherwise\n");
                                         costIdentifier=ntohs(cpp->changedCost);
                                     }
-                                    //wrong. find the index of that RID
-                                    if(localBaseTopologyTable[ntohs(cpp->changeCostForRID)].ne==true)
+                                    for(int i=1;i<ntohs(nodeCount);i++)
+                                    {
+                                        if(localBaseTopologyTable[i].destinationRouterID==cpp->changeCostForRID)
+                                        index=i;
+                                            
+                                    }
+                                    
+                                    if(localBaseTopologyTable[index].ne==true)
                                     {
                                         printf("NE is true, neReachability will be updated\n");
                                         neReachability[ntohs(cpp->changeCostForRID)]=costIdentifier;

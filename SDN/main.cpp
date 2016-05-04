@@ -537,11 +537,11 @@ public: int estalblishRouter(uint16_t controlPort)
                 stopwatch++;
                 if(stopwatch==ntohs(updateInterval))
                 {
-                    printf("sockdfUpdates before sending update is: [%d]\n",sockfdUpdates);
-                    printf("####**** before calling transmitRoutingUpdates value of lbtt[1].ne : %d\n", localBaseTopologyTable[1].ne);
-                    printf("####**** before calling transmitRoutingUpdates value of lbtt[2].ne : %d\n", localBaseTopologyTable[2].ne);
-                    printf("####**** before calling transmitRoutingUpdates value of lbtt[3].ne : %d\n", localBaseTopologyTable[3].ne);
-                    printf("####**** before calling transmitRoutingUpdates value of lbtt[4].ne : %d\n", localBaseTopologyTable[4].ne);
+//                    printf("sockdfUpdates before sending update is: [%d]\n",sockfdUpdates);
+//                    printf("####**** before calling transmitRoutingUpdates value of lbtt[1].ne : %d\n", localBaseTopologyTable[1].ne);
+//                    printf("####**** before calling transmitRoutingUpdates value of lbtt[2].ne : %d\n", localBaseTopologyTable[2].ne);
+//                    printf("####**** before calling transmitRoutingUpdates value of lbtt[3].ne : %d\n", localBaseTopologyTable[3].ne);
+//                    printf("####**** before calling transmitRoutingUpdates value of lbtt[4].ne : %d\n", localBaseTopologyTable[4].ne);
                     transmitRoutingUpdates(localBaseTopologyTable, whoAmiPort, whoAmiIP, nodeCount, sockfdUpdates);
                     stopwatch=0;
                 }
@@ -686,7 +686,7 @@ public: int estalblishRouter(uint16_t controlPort)
                                         if(ntohs(localBaseTopologyTable[i].destinationRouterID)==advertiserID)
                                         {
                                             advertiserLocatedAtIndex=i;
-                                            printf("advertiser is located at index: [%d]\n", advertiserLocatedAtIndex);
+                                            //printf("advertiser is located at index: [%d]\n", advertiserLocatedAtIndex);
                                         }
                                     }
                                 }

@@ -1447,7 +1447,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        uint16_t cost1=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost1, 2);
                                         
                                         //shift back
                                         controlResponseBuffer-=14;
@@ -1470,7 +1471,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        uint16_t cost1=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost1, 2);
                                         controlResponseBuffer+=2;
                                         
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
@@ -1479,7 +1481,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].metricCost, 2);
+                                        uint16_t cost2=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost2, 2);
                                         
                                         //shift back
                                         controlResponseBuffer-=22;
@@ -1502,7 +1505,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        uint16_t cost1=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost1, 2);
                                         controlResponseBuffer+=2;
                                         
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
@@ -1511,7 +1515,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].metricCost, 2);
+                                        uint16_t cost2=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost2, 2);
                                         controlResponseBuffer+=2;
                                         
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[3].destinationRouterID, 2);
@@ -1520,7 +1525,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[3].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].metricCost, 2);
+                                        uint16_t cost3=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost3, 2);
                                         
                                         //shift back
                                         controlResponseBuffer-=30;
@@ -1537,18 +1543,18 @@ public: int estalblishRouter(uint16_t controlPort)
                                     
                                     if(ntohs(nodeCount)==4)
                                     {
-                                        printf("trying to pack payload for %d nodes \n", ntohs(nodeCount));
+                                        //printf("trying to pack payload for %d nodes \n", ntohs(nodeCount));
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[1].destinationRouterID, 2);
                                     controlResponseBuffer+=2;
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[1].padding, 2);
                                     controlResponseBuffer+=2;
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
                                     controlResponseBuffer+=2;
-                                        printf("copying into response buffer, values: NHID[1] - [%u]\n", ntohs(localBaseTopologyTable[1].nextHopID));
+                                        //printf("copying into response buffer, values: NHID[1] - [%u]\n", ntohs(localBaseTopologyTable[1].nextHopID));
                                         uint16_t cost1=ntohs(localBaseTopologyTable[1].metricCost);
                                     memcpy(controlResponseBuffer, &cost1, 2);
                                     controlResponseBuffer+=2;
-                                        printf("copying into response buffer, values: cost[1] - [%u]\n", cost1);
+                                        //printf("copying into response buffer, values: cost[1] - [%u]\n", cost1);
                                     
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
                                     controlResponseBuffer+=2;
@@ -1556,11 +1562,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                     controlResponseBuffer+=2;
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
                                     controlResponseBuffer+=2;
-                                        printf("copying into response buffer, values: NHID[2] - [%u]\n", ntohs(localBaseTopologyTable[2].nextHopID));
+                                        //printf("copying into response buffer, values: NHID[2] - [%u]\n", ntohs(localBaseTopologyTable[2].nextHopID));
                                         uint16_t cost2=ntohs(localBaseTopologyTable[2].metricCost);
                                     memcpy(controlResponseBuffer, &cost2, 2);
                                     controlResponseBuffer+=2;
-                                        printf("copying into response buffer, values: cost[2] - [%u]\n", cost2);
+                                        //printf("copying into response buffer, values: cost[2] - [%u]\n", cost2);
                                     
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[3].destinationRouterID, 2);
                                     controlResponseBuffer+=2;
@@ -1568,11 +1574,11 @@ public: int estalblishRouter(uint16_t controlPort)
                                     controlResponseBuffer+=2;
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[3].nextHopID, 2);
                                     controlResponseBuffer+=2;
-                                        printf("copying into response buffer, values: NHID[3] - [%u]\n", ntohs(localBaseTopologyTable[3].nextHopID));
+                                        //printf("copying into response buffer, values: NHID[3] - [%u]\n", ntohs(localBaseTopologyTable[3].nextHopID));
                                         uint16_t cost3=ntohs(localBaseTopologyTable[3].metricCost);
                                     memcpy(controlResponseBuffer, &cost3, 2);
                                     controlResponseBuffer+=2;
-                                    printf("copying into response buffer, values: cost[3] - [%u]\n", cost3);
+                                        //printf("copying into response buffer, values: cost[3] - [%u]\n", cost3);
                                         
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[4].destinationRouterID, 2);
                                     controlResponseBuffer+=2;
@@ -1580,10 +1586,10 @@ public: int estalblishRouter(uint16_t controlPort)
                                     controlResponseBuffer+=2;
                                     memcpy(controlResponseBuffer, &localBaseTopologyTable[4].nextHopID, 2);
                                     controlResponseBuffer+=2;
-                                        printf("copying into response buffer, values: NHID[4] - [%u]\n", ntohs(localBaseTopologyTable[4].nextHopID));
+                                        //printf("copying into response buffer, values: NHID[4] - [%u]\n", ntohs(localBaseTopologyTable[4].nextHopID));
                                         uint16_t cost4=ntohs(localBaseTopologyTable[4].metricCost);
                                     memcpy(controlResponseBuffer, &cost4, 2);
-                                        printf("copying into response buffer, values: cost[4] - [%u]\n", cost4);
+                                        //printf("copying into response buffer, values: cost[4] - [%u]\n", cost4);
                                         
                                     
                                     //shift back
@@ -1607,7 +1613,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[1].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[1].metricCost, 2);
+                                        uint16_t cost1=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost1, 2);
                                         controlResponseBuffer+=2;
                                         
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[2].destinationRouterID, 2);
@@ -1616,7 +1623,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[2].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[2].metricCost, 2);
+                                        uint16_t cost2=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost2, 2);
                                         controlResponseBuffer+=2;
                                         
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[3].destinationRouterID, 2);
@@ -1625,7 +1633,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[3].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[3].metricCost, 2);
+                                        uint16_t cost3=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost3, 2);
                                         controlResponseBuffer+=2;
                                         
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[4].destinationRouterID, 2);
@@ -1634,7 +1643,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[4].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].metricCost, 2);
+                                        uint16_t cost4=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost4, 2);
                                         controlResponseBuffer+=2;
                                         
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[4].destinationRouterID, 2);
@@ -1643,7 +1653,8 @@ public: int estalblishRouter(uint16_t controlPort)
                                         controlResponseBuffer+=2;
                                         memcpy(controlResponseBuffer, &localBaseTopologyTable[4].nextHopID, 2);
                                         controlResponseBuffer+=2;
-                                        memcpy(controlResponseBuffer, &localBaseTopologyTable[4].metricCost, 2);
+                                        uint16_t cost5=ntohs(localBaseTopologyTable[1].metricCost);
+                                        memcpy(controlResponseBuffer, &cost5, 2);
                                         
                                         //shift back
                                         controlResponseBuffer-=46;
